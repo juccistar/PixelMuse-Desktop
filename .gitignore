@@ -1,0 +1,72 @@
+# Dependencies and build output
+node_modules/
+dist/
+out/
+release/
+coverage/
+*.tsbuildinfo
+
+# Local migration snapshots and one-off diagnostics (tracked archive scripts remain tracked)
+.workspace-tools/*
+!.workspace-tools/license-cleanup.json
+
+# Local caches and tools
+.cache/
+.turbo/
+.vite/
+.agents/
+.claude/
+.codex/
+.eslintcache
+
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+.npmrc
+
+# Runtime data, user assets, and generated exports
+data/
+data-e2e/
+data-e2e-*/
+user-data/
+userdata/
+uploads/
+exports/
+*.db
+*.db-*
+*.sqlite*
+*.rdb
+*.aof
+*.log
+*.zip
+*.7z
+*.tar
+*.gz
+*.exe
+*.msi
+*.msix
+*.dmg
+*.AppImage
+*.blockmap
+
+# Operating system files
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Original desktop project exclusions
+node_modules/
+**/dist/
+**/out/
+release/
+.cache/
+.env
+*.log
+*.sqlite*
+*.zip
+*.exe

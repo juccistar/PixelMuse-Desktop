@@ -1,0 +1,34 @@
+{
+  "name": "@ecomgen/agent",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.33",
+    "@ecomgen/domain": "workspace:*",
+    "@ecomgen/providers": "workspace:*",
+    "@ecomgen/ecom-skill": "workspace:*",
+    "@ecomgen/ecom-suite": "workspace:*",
+    "@ecomgen/ecom-suite-forge": "workspace:*",
+    "@earendil-works/pi-agent-core": "1.5.0",
+    "@earendil-works/pi-ai": "1.5.0"
+  },
+  "private": true,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE*",
+    "NOTICE*",
+    "UPSTREAM*"
+  ]
+}

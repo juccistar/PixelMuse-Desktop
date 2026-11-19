@@ -1,0 +1,238 @@
+{
+  "date": "2026-11-06",
+  "mode": "archived",
+  "permanentDeletions": 0,
+  "note": "永久删除被自动审批要求逐文件批准；本操作仅进行可恢复的同工作区重命名归档，不调用删除API。",
+  "protectedPrefixes": [
+    "legacy",
+    "desktop/node_modules",
+    "desktop/release",
+    "desktop/.cache/adversarial-verify-20261106",
+    ".workspace-tools/baseline-desktop-0.2.0"
+  ],
+  "records": [
+    {
+      "source": "desktop/ARCHITECTURE.md",
+      "destination": "desktop/docs/architecture.md",
+      "bytes": 31009,
+      "sha256": "f47faadb095c4083201022ba7fa0999b47901feb04b2fd44a91dc3981dcee21a",
+      "operation": "classify-document-or-reference",
+      "reason": "分类归档，保留内容原始字节",
+      "status": "archived"
+    },
+    {
+      "source": "desktop/MIGRATION_STATUS.md",
+      "destination": "desktop/docs/archive/migration-status-through-0.4.0.md",
+      "bytes": 64350,
+      "sha256": "fabeef79a079746166edde034715dbef1440277f09a05e1b4622e890b7c5f166",
+      "operation": "classify-document-or-reference",
+      "reason": "分类归档，保留内容原始字节",
+      "status": "archived"
+    },
+    {
+      "source": "desktop/VALIDATION.md",
+      "destination": "desktop/docs/archive/validation-through-0.4.0.md",
+      "bytes": 20204,
+      "sha256": "fec37ea302579103a8d9da83150a277ef33cbc7d57041600562f6a3fc7677a99",
+      "operation": "classify-document-or-reference",
+      "reason": "分类归档，保留内容原始字节",
+      "status": "archived"
+    },
+    {
+      "source": "desktop/migration-discovery/map-1.json",
+      "destination": "desktop/docs/archive/migration-0.3.0/map-1.json",
+      "bytes": 52776,
+      "sha256": "b207dd0440145f490cdc8cc385e44a07339a43b46e1f9469fa4b556a6870cad5",
+      "operation": "classify-document-or-reference",
+      "reason": "分类归档，保留内容原始字节",
+      "status": "archived"
+    },
+    {
+      "source": "desktop/migration-discovery/map-2.json",
+      "destination": "desktop/docs/archive/migration-0.3.0/map-2.json",
+      "bytes": 55518,
+      "sha256": "f365b4fc66de2b9bcdac57b79328cb4558d681b460c8c05bcafa31cfceac7420",
+      "operation": "classify-document-or-reference",
+      "reason": "分类归档，保留内容原始字节",
+      "status": "archived"
+    },
+    {
+      "source": "desktop/migration-discovery/map-3.json",
+      "destination": "desktop/docs/archive/migration-0.3.0/map-3.json",
+      "bytes": 49974,
+      "sha256": "e5ca42f3e8656a87ec8e65fce98b0064680c472e74749479c3e28f37807b2352",
+      "operation": "classify-document-or-reference",
+      "reason": "分类归档，保留内容原始字节",
+      "status": "archived"
+    },
+    {
+      "source": "desktop/migration-discovery/ownership-plan.md",
+      "destination": "desktop/docs/archive/migration-0.3.0/ownership-plan.md",
+      "bytes": 23452,
+      "sha256": "9876e41af74bf8764821d717c45145525a5f97dd1b55dc44884d672e2064cef7",
+      "operation": "classify-document-or-reference",
+      "reason": "分类归档，保留内容原始字节",
+      "status": "archived"
+    },
+    {
+      "source": "desktop/migration-discovery/INTERFACES.md",
+      "destination": "desktop/docs/archive/migration-0.3.0/INTERFACES.md",
+      "bytes": 28370,
+      "sha256": "2eba79101ccce069dd17440f9ba795400285babbc98fc5def73d62115a6de2f2",
+      "operation": "classify-document-or-reference",
+      "reason": "分类归档，保留内容原始字节",
+      "status": "archived"
+    },
+    {
+      "source": "desktop/migration-discovery/recovered-C-report.json",
+      "destination": "desktop/docs/archive/migration-0.3.0/recovered-C-report.json",
+      "bytes": 7626,
+      "sha256": "a636ec161ff1cefd7b1ddc06ba69c85f049d29e36f86cb1e84346abc80870f53",
+      "operation": "classify-document-or-reference",
+      "reason": "分类归档，保留内容原始字节",
+      "status": "archived"
+    },
+    {
+      "source": "desktop/migration-discovery/recovered-D-report.json",
+      "destination": "desktop/docs/archive/migration-0.3.0/recovered-D-report.json",
+      "bytes": 7927,
+      "sha256": "fc4fdaf824cafdd47797aeb5f1a312fd81fbf60658afa5a97fa7927988738705",
+      "operation": "classify-document-or-reference",
+      "reason": "分类归档，保留内容原始字节",
+      "status": "archived"
+    },
+    {
+      "source": "desktop/migration-discovery/recovered-E-report.json",
+      "destination": "desktop/docs/archive/migration-0.3.0/recovered-E-report.json",
+      "bytes": 8620,
+      "sha256": "dee3e3ef6948ab0f42313955bf5e0e870bd7a56baa4070cf65f837f1bd38f13c",
+      "operation": "classify-document-or-reference",
+      "reason": "分类归档，保留内容原始字节",
+      "status": "archived"
+    },
+    {
+      "source": "desktop/migration-discovery/verified-business-review.json",
+      "destination": "desktop/docs/archive/migration-0.3.0/verified-business-review.json",
+      "bytes": 19235,
+      "sha256": "75ad088551be7ea6f29a99d79ef02f46dea8c22a75b580750190f41fc5635085",
+      "operation": "classify-document-or-reference",
+      "reason": "分类归档，保留内容原始字节",
+      "status": "archived"
+    },
+    {
+      "source": "desktop/migration-discovery/release-verification-spec.md",
+      "destination": "desktop/docs/archive/migration-0.3.0/release-verification-spec.md",
+      "bytes": 13216,
+      "sha256": "09b0ebef9394374a20b22acd5cdfe26868357499a53d55edcab0900750fcb779",
+      "operation": "classify-document-or-reference",
+      "reason": "分类归档，保留内容原始字节",
+      "status": "archived"
+    },
+    {
+      "source": "desktop/scripts/e2e-mock.mjs",
+      "destination": "desktop/docs/archive/tools-0.2.0/e2e-mock.mjs.txt",
+      "bytes": 15621,
+      "sha256": "4b2a500cbbf928ce63443eebb353db1847771ffb0ce5889449dba640dd3519b8",
+      "operation": "classify-document-or-reference",
+      "reason": "分类归档，保留内容原始字节",
+      "status": "archived"
+    },
+    {
+      "source": "desktop/scripts/mock-provider.mjs",
+      "destination": "desktop/docs/archive/tools-0.2.0/mock-provider.mjs.txt",
+      "bytes": 3329,
+      "sha256": "335c76af81cd82de72961b2b338665ad3c65f5655b3ee4851180ff9249a9c660",
+      "operation": "classify-document-or-reference",
+      "reason": "分类归档，保留内容原始字节",
+      "status": "archived"
+    },
+    {
+      "source": "desktop/scripts/mock-provider.d.mts",
+      "destination": "desktop/docs/archive/tools-0.2.0/mock-provider.d.mts.txt",
+      "bytes": 341,
+      "sha256": "fbe6b3bcb942819b24d2b7b13405d761723f9aaee737315c1e8f5b3be824a5f4",
+      "operation": "classify-document-or-reference",
+      "reason": "分类归档，保留内容原始字节",
+      "status": "archived"
+    },
+    {
+      "source": ".workspace-tools/reorganize.cjs",
+      "destination": ".workspace-tools/archive/obsolete-tools-20261106/workspace-tools/reorganize.cjs.txt",
+      "bytes": 1298,
+      "sha256": "060f940c947619ab001ada010b363965364d0ff1495428f12aecf361e2b11cc3",
+      "operation": "archive-obsolete-file",
+      "reason": "已完成的一次性整理/快照/旧Web截图脚本；保留迁移清单和基线，不再保留可误执行入口",
+      "status": "archived"
+    },
+    {
+      "source": ".workspace-tools/finish-source-move.cjs",
+      "destination": ".workspace-tools/archive/obsolete-tools-20261106/workspace-tools/finish-source-move.cjs.txt",
+      "bytes": 1591,
+      "sha256": "63c463363a82c58b6daec4562ac23beeb02d3594b2e07fe7cf396043a062e90a",
+      "operation": "archive-obsolete-file",
+      "reason": "已完成的一次性整理/快照/旧Web截图脚本；保留迁移清单和基线，不再保留可误执行入口",
+      "status": "archived"
+    },
+    {
+      "source": ".workspace-tools/move-remaining.cjs",
+      "destination": ".workspace-tools/archive/obsolete-tools-20261106/workspace-tools/move-remaining.cjs.txt",
+      "bytes": 2481,
+      "sha256": "4c230e9b434c73af790139770daccd7ee0f0fe3341d5c021cc802243844a5ead",
+      "operation": "archive-obsolete-file",
+      "reason": "已完成的一次性整理/快照/旧Web截图脚本；保留迁移清单和基线，不再保留可误执行入口",
+      "status": "archived"
+    },
+    {
+      "source": ".workspace-tools/finish-remaining-archive.cjs",
+      "destination": ".workspace-tools/archive/obsolete-tools-20261106/workspace-tools/finish-remaining-archive.cjs.txt",
+      "bytes": 2373,
+      "sha256": "55320b59f18af00c2e014ea732c708971075a2ca7be580a0dbf64948826da813",
+      "operation": "archive-obsolete-file",
+      "reason": "已完成的一次性整理/快照/旧Web截图脚本；保留迁移清单和基线，不再保留可误执行入口",
+      "status": "archived"
+    },
+    {
+      "source": ".workspace-tools/snapshot-desktop-0.2.cjs",
+      "destination": ".workspace-tools/archive/obsolete-tools-20261106/workspace-tools/snapshot-desktop-0.2.cjs.txt",
+      "bytes": 1506,
+      "sha256": "b43d58aecd16bc2c7282320c4caf4385b96917250cb747da753d1e2522bdeba0",
+      "operation": "archive-obsolete-file",
+      "reason": "已完成的一次性整理/快照/旧Web截图脚本；保留迁移清单和基线，不再保留可误执行入口",
+      "status": "archived"
+    },
+    {
+      "source": ".workspace-tools/capture-legacy-ui.cjs",
+      "destination": ".workspace-tools/archive/obsolete-tools-20261106/workspace-tools/capture-legacy-ui.cjs.txt",
+      "bytes": 2561,
+      "sha256": "a52631203c52d6788382bb59db52aac59c4c3f6869f325c1fe46f750c7a68f83",
+      "operation": "archive-obsolete-file",
+      "reason": "已完成的一次性整理/快照/旧Web截图脚本；保留迁移清单和基线，不再保留可误执行入口",
+      "status": "archived"
+    },
+    {
+      "source": "desktop/.cache/settings-fix-ui-edit.cjs",
+      "destination": ".workspace-tools/archive/obsolete-tools-20261106/desktop-cache/settings-fix-ui-edit.cjs.txt",
+      "bytes": 4085,
+      "sha256": "c28d7c2047ae687b2f73a05299ab57ba8fc20ae1404064d2ee3765b7e5bcde2f",
+      "operation": "archive-obsolete-file",
+      "reason": "已应用的一次性源码文本重写器，没有当前调用方",
+      "status": "archived"
+    },
+    {
+      "source": "desktop/.cache/collection-review-probe-build.cjs",
+      "destination": ".workspace-tools/archive/obsolete-tools-20261106/desktop-cache/collection-review-probe-build.cjs.txt",
+      "bytes": 362,
+      "sha256": "a84c4fbe56ae6c3644bf606a8d41c25be48587b7ba5e23abe701200176f22787",
+      "operation": "archive-obsolete-file",
+      "reason": "一次性审查打包器，没有当前调用方；保留已有审查产物和最终证据",
+      "status": "archived"
+    },
+    {
+      "source": "EcomGendesktop.cacheadversarial-verify-20261106",
+      "destination": ".workspace-tools/archive/obsolete-tools-20261106/empty-directory/EcomGendesktop.cacheadversarial-verify-20261106",
+      "operation": "archive-empty-tree",
+      "directories": 2,
+      "status": "archived"
+    }
+  ]
+}

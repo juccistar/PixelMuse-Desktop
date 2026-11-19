@@ -1,0 +1,68 @@
+{
+  "provenance": {
+    "transcript": "C:/Users/Administrator/.claude/projects/e--EcomGen/d4f517ce-c435-405c-afb6-249f17fdb1ab/subagents/workflows/wf_2baf1911-a9d/agent-ada6cc38cf845e5d1.jsonl",
+    "agentId": "ada6cc38cf845e5d1",
+    "source": "Accepted StructuredOutput attachment; outer workflow journal has not recorded a result"
+  },
+  "report": {
+    "summary": "ROLE C 领域命令已交付：127 个具名处理器与 B 的 7 个运行时处理器精确覆盖全部 134 个契约操作。实现项目/素材/库、配置与目录、规划/分镜/候选/导出、编辑/分层、模特、花型/草稿/印刷/Listing/流水线的业务校验和持久意图；关联记录与执行快照同事务提交，提交后入队，公开投影不泄漏路径或凭据。28 项隔离行为及真实调度器接线测试通过。本报告不代表完整 UI、执行器全流程或 EXE 已完成验收。",
+    "files": [
+      "E:/EcomGen/desktop/packages/backend/src/commands/index.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/support.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/resources.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/lifecycle.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/projects.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/storyboard.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/versioning.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/outputs.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/editSessions.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/edit-turn.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/models.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/patterns.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/patternDrafts.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/patternPipelines.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/providers.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/searchSources.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/userTemplates.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/suites.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/suiteForge.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/helpers.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/input-normalizers.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/projectPatch.ts",
+      "E:/EcomGen/desktop/packages/backend/src/commands/README.md",
+      "E:/EcomGen/desktop/packages/backend/test/commands/commands.test.ts",
+      "E:/EcomGen/desktop/packages/backend/test/commands/backend-integration.test.ts",
+      "E:/EcomGen/desktop/packages/backend/test/commands/tsconfig.json"
+    ],
+    "apiArtifacts": [
+      "E:/EcomGen/desktop/packages/backend/src/commands/index.ts — registerDomainCommands(context: CommandContext): CommandHandlers。生产接线使用 createBackend(options, onChange, { commands: registerDomainCommands, executors: registerExecutors })。注册时对 operations 全量核对，无缺失操作兜底。",
+      "同入口导出 RUNTIME_OWNED_COMMANDS：getHealth、getJob、cancelJob、retryJob、listJobs、getJobRequests、getResource；由 B 提供实际版本、RuntimeStore 与队列能力。其余 127 项由 C 注册。",
+      "冻结调用 D 的 createExecutionSnapshot(context, job, resources)，来源 E:/EcomGen/desktop/packages/backend/src/execution/snapshot.ts。Job、Turn/参考绑定、Batch/Slot、Step、Export、LayerPlan/LayerExport、PrintPack 完整创建并 freeze 后才 enqueue。",
+      "E:/EcomGen/desktop/packages/backend/src/commands/resources.ts — resourceHandle(context, ref, verify?), preparePublicResources(context, result)、registerJobResources(context, job)，实现受限文件身份、历史缩略图、资源登记及持久清理。",
+      "参考脸 URL 使用 MODEL_FACE/<model UUID>-<content hash>；Renderer 应消费返回的 referenceFaceUrl，保留旧任务的不可变文件引用。",
+      "E:/EcomGen/desktop/packages/backend/src/commands/README.md — 逐业务族覆盖、事务/资源约定、依赖与整合界限。"
+    ],
+    "dependencies": [
+      "无需安装新依赖，使用现有 @ecomgen/core、contracts、domain、providers、ecom-skill、ecom-suite、TypeBox、sharp。",
+      "复用 B 的 CommandContext、scheduler、资源注册表和唯一 SQLite owner；没有新增连接、表、HTTP 业务桥或 legacy 运行导入。",
+      "未修改 manifest、锁文件、根构建配置、runtime/contracts/core/execution/renderer；未创建 Git 提交。"
+    ],
+    "tests": [
+      "PASS：指定 Node 22.23.4 执行 E:/EcomGen/desktop/node_modules/vitest/vitest.mjs run --root E:/EcomGen/desktop packages/backend/test/commands；2 文件、28 项全部通过，无跳过。",
+      "PASS：指定 Node 执行 E:/EcomGen/desktop/node_modules/typescript/bin/tsc -p E:/EcomGen/desktop/packages/backend/test/commands/tsconfig.json；最终 commands 源码及两份测试严格类型检查通过。",
+      "PASS：执行 E:/EcomGen/desktop/node_modules/typescript/bin/tsc -p E:/EcomGen/desktop/packages/backend/tsconfig.json --noEmit；当前并行整合期间全 Backend 类型检查曾通过。后续协调者仍需运行最终全工作区验证。",
+      "覆盖全部命令注册、真实 scheduler 接线与 await、第二次 freeze 失败整批回滚、不可变快照、CREATIVE/PIXEL_PROTECTED、模板/跨项目校验、多候选、确认 CAS、蒙版/审批/记忆、失败槽位补偿与 UNKNOWN、印刷/Listing/流水线、文件准备回收和参考脸版本。",
+      "新增删除竞争回归：Provider 删除等待期间新建任务会继续取消并等待；模特删除等待期间新建选角任务会阻止删除。",
+      "使用隔离 SQLite、临时目录、生成 PNG、两项套图快照夹具和本机假 Provider GET /models；连接探测未发送付费 POST。没有调用真实 Provider、读取旧用户数据或停止现有服务/窗口。",
+      "生产 commands 静态检索无旧 /api/v1 路径、request/reply、Fastify、legacy 导入、TODO、NOT_IMPLEMENTED 或 COMMAND_UNAVAILABLE。"
+    ],
+    "openIssues": [
+      "协调者须在生产入口注入 C 与 D，并完成 E/F、全工作区构建、完整假协议业务流程和最终 EXE 验收；本阶段没有修改这些所有权外文件。",
+      "冻结的 ByteImportSchema/decodeByteImport 仍仅支持 PNG/JPEG/WebP。C 保留 50MiB 桌面文件上限；已发布桌面的 AVIF/TIFF 需要 B/协调者扩展契约与解码、E 扩展文件选择后接入，不能据此宣称所有既有格式已迁完。",
+      "A 当前门面缺少素材角色更新、手动分镜修订、按 owner 枚举资源的窄 API；C 已通过 EcomRepository 实际持有的同一 db 实现这些行为，没有缺失功能回退。协调者可将这三个适配收拢为正式 core/runtime 方法。",
+      "新运行资源清理依赖 B 现有启动前/等待全部命令与执行结束后的 cleanup 顺序；不要在命令异步文件准备期间额外并发清理暂存资源。",
+      "没有当前业务行的 v1/v2 保留任务产物仍需整合层通过 DesktopHistoryRepository 登记并提供只读历史投影；C 已处理现存领域行及其惰性缩略图，没有导入旧 Web 数据。",
+      "必须保留或共同调整 D 的 createExecutionSnapshot 导出；自动后续步骤、自动采用的迟到结果 fencing、逐请求回执和恢复需要最终 B/D/F 集成验证。"
+    ]
+  }
+}

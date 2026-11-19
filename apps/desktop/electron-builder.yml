@@ -1,0 +1,37 @@
+appId: com.ecomgen.desktop
+productName: PixelMuse
+copyright: Copyright © PixelMuse
+asar: true
+npmRebuild: false
+files:
+  - out/**
+  - package.json
+  - build/icon.ico
+  # pnpm 的 link/version 双重标识会让 builder 重复打包同一 domain；两处引用统一解析根目录副本。
+  - '!node_modules/@ecomgen/contracts/node_modules/@ecomgen/domain{,/**}'
+  - '!node_modules/@ecomgen/ecom-skill/node_modules/@ecomgen/domain{,/**}'
+asarUnpack:
+  - '**/*.node'
+  - '**/sharp/**'
+  - '**/@img/**'
+  - '**/builtin-suites.db'
+directories:
+  output: ../../release/0.5.0
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+artifactName: PixelMuse-${version}-${arch}-Setup.${ext}
+publish:
+  provider: github
+  owner: juccistar
+  repo: pixelmuse-releases
+  releaseType: draft

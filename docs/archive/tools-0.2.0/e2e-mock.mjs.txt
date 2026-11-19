@@ -1,0 +1,226 @@
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { startMockProvider } from './mock-provider.mjs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { inflateRawSync } from 'node:zlib';
+import { _electron } from 'playwright-core';
+
+// 真实 Electron + utilityProcess + SQLite；仅替换系统文件选择器的返回值，不连接模型服务。
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const desktop = join(root, 'apps/desktop');
+const require = createRequire(join(desktop, 'package.json'));
+const executablePath = process.env.ECOMGEN_E2E_EXECUTABLE || require('electron');
+const packaged = Boolean(process.env.ECOMGEN_E2E_EXECUTABLE);
+const fixture = await mkdtemp(join(tmpdir(), 'ecomgen-desktop-e2e-'));
+const userData = join(fixture, 'user-data');
+const artifacts = resolve(process.env.ECOMGEN_E2E_ARTIFACTS || join(root, '.cache/e2e'));
+await mkdir(userData, { recursive: true });
+await mkdir(artifacts, { recursive: true });
+const sharp = createRequire(join(root, 'packages/backend/package.json'))('sharp');
+const image = join(fixture, 'product.png');
+await sharp({ create: { width: 960, height: 720, channels: 4, background: '#7ba9a1' } }).composite([
+  { input: Buffer.from('<svg width="960" height="720"><rect x="320" y="140" width="280" height="380" rx="48" fill="#f8efdc"/><path d="M600 230h60v170h-60" fill="none" stroke="#f8efdc" stroke-width="38"/><text x="460" y="620" font-size="38" text-anchor="middle" fill="#fff">LOCAL STUDIO</text></svg>') },
+]).png().toFile(image);
+const suiteDirectory = join(root, 'packages/ecom-suite/src/suites');
+const suiteFixtureName = (await readdir(suiteDirectory)).sort().find(name => name.endsWith('.json'));
+const suiteFixture = JSON.parse(await readFile(join(suiteDirectory,suiteFixtureName),'utf8'));
+const mock = await startMockProvider(await readFile(image), { suite: suiteFixture });
+const savePath = join(fixture, 'export.zip');
+const fakeKey = 'ecomgen-e2e-dummy-key-never-sent';
+let app;
+let page;
+const errors = [];
+async function launch() {
+  const env = { ...process.env, ECOMGEN_DESKTOP_DATA_DIR: userData };
+  delete env.ELECTRON_RUN_AS_NODE;
+  delete env.ELECTRON_RENDERER_URL;
+  app = await _electron.launch({ executablePath, args: packaged ? [] : [desktop], env, timeout: 45000 });
+  page = await app.firstWindow({ timeout: 45000 });
+  page.setDefaultTimeout(15000);
+  page.on('pageerror', error => errors.push(error.message));
+  await page.getByText('本地服务已连接', { exact: true }).waitFor();
+}
+async function invoke(operation, input = {}) {
+  return page.evaluate(({ operation, input }) => window.ecomgen.invoke(operation, input), { operation, input });
+}
+async function stop() {
+  if (app) { const closing = app; app = undefined; await closing.close(); }
+}
+function unzip(buffer) {
+  const end = buffer.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  assert.ok(end >= 0, 'ZIP has end record');
+  const files = new Map();
+  let offset = buffer.readUInt32LE(end + 16);
+  for (let n = 0; n < buffer.readUInt16LE(end + 10); n++) {
+    assert.equal(buffer.readUInt32LE(offset), 0x02014b50);
+    const method = buffer.readUInt16LE(offset + 10);
+    const size = buffer.readUInt32LE(offset + 20);
+    const nameLength = buffer.readUInt16LE(offset + 28);
+    const local = buffer.readUInt32LE(offset + 42);
+    const name = buffer.subarray(offset + 46, offset + 46 + nameLength).toString('utf8');
+    const start = local + 30 + buffer.readUInt16LE(local + 26) + buffer.readUInt16LE(local + 28);
+    const bytes = buffer.subarray(start, start + size);
+    files.set(name, method === 8 ? inflateRawSync(bytes) : bytes);
+    offset += 46 + nameLength + buffer.readUInt16LE(offset + 30) + buffer.readUInt16LE(offset + 32);
+  }
+  return files;
+}
+try {
+  await launch();
+  const isolation = await page.evaluate(() => ({ node: typeof window.require, process: typeof window.process, bridge: typeof window.ecomgen }));
+  assert.deepEqual(isolation, { node: 'undefined', process: 'undefined', bridge: 'object' });
+  await page.screenshot({ path: join(artifacts,'home.png'), fullPage: true });
+  assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(13, 13, 15)');
+  await page.getByRole('button', { name: '创建第一个项目', exact: true }).click();
+  await page.getByLabel('项目名称').fill('陶瓷杯素材');
+  await page.getByLabel('项目描述').fill('Electron 本地素材与导出验证');
+  await page.getByRole('button', { name: '创建项目', exact: true }).click();
+  await page.getByRole('heading', { name: '陶瓷杯素材', exact: true }).waitFor();
+  await page.getByRole('button', { name: '编辑项目', exact: true }).click();
+  await page.getByLabel('项目名称').fill('春日陶瓷杯');
+  await page.getByRole('button', { name: '保存修改', exact: true }).click();
+  await page.getByRole('heading', { name: '春日陶瓷杯', exact: true }).waitFor();
+  const [project] = await invoke('projects.list');
+  await assert.rejects(invoke('host.assetPath', { assetId: project.id }), /不支持的操作/);
+  await assert.rejects(invoke('assets.list', { projectId: project.id, paths: [image] }), /请求参数不符合契约/);
+  await app.evaluate(({ dialog }, image) => {
+    dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [image] });
+  }, image);
+  await page.getByRole('button', { name: '导入素材', exact: true }).click();
+  const thumbnail = page.getByRole('img', { name: 'product.png', exact: true });
+  await thumbnail.waitFor();
+  await page.waitForFunction(() => [...document.images].some(img => img.alt === 'product.png' && img.complete && img.naturalWidth === 960));
+  await page.screenshot({ path: join(artifacts, 'workspace.png'), fullPage: true });
+  await page.getByRole('button', { name: '打包导出', exact: true }).click();
+  await page.getByText('导出完成', { exact: true }).waitFor();
+  const [job] = await invoke('jobs.list', { projectId: project.id });
+  assert.equal(job.status, 'SUCCEEDED');
+  assert.equal((await invoke('jobs.export', { projectId: project.id })).id, job.id);
+  await app.evaluate(({ dialog }, savePath) => {
+    dialog.showSaveDialog = async () => ({ canceled: false, filePath: savePath });
+  }, savePath);
+  await page.getByRole('button', { name: '保存到…', exact: true }).click();
+  await page.getByText('导出文件已保存', { exact: true }).waitFor();
+  const archive = unzip(await readFile(savePath));
+  const manifest = JSON.parse(archive.get('manifest.json').toString());
+  assert.equal(manifest.project.name, '春日陶瓷杯');
+  const asset = (await invoke('assets.list', { projectId: project.id }))[0];
+  assert.deepEqual(archive.get(`assets/${asset.id}.png`), await readFile(image));
+  assert.equal(JSON.stringify(manifest).includes(fakeKey), false);
+  await page.screenshot({ path: join(artifacts, 'export.png'), fullPage: true });
+  await page.getByRole('button', { name: '服务设置', exact: true }).click();
+  await page.getByRole('button', { name: '添加服务', exact: true }).click();
+  await page.getByLabel('配置名称').fill('本地验证配置');
+  await page.getByLabel('模型名称').fill('test-model');
+  await page.getByLabel('Base URL').fill(mock.baseUrl);
+  await page.getByLabel('支持视觉输入', { exact: true }).check();
+  assert.equal(await page.getByRole('button', { name: '保存配置', exact: true }).isDisabled(), true);
+  await page.getByLabel('API Key').fill(fakeKey);
+  await page.getByRole('button', { name: '保存配置', exact: true }).click();
+  await page.getByRole('heading', { name: '本地验证配置', exact: true }).waitFor();
+  await page.getByRole('button', { name: '编辑 本地验证配置', exact: true }).click();
+  assert.equal(await page.getByLabel('API Key').inputValue(), '');
+  await page.getByLabel('模型名称').fill('test-model-updated');
+  await page.getByRole('button', { name: '保存配置', exact: true }).click();
+  await page.getByText('test-model-updated', { exact: true }).waitFor();
+  const providers = await invoke('providers.list');
+  assert.equal(providers[0].hasApiKey, true);
+  assert.equal(JSON.stringify(providers).includes(fakeKey), false);
+  await page.getByRole('button', { name: '关闭对话框', exact: true }).click();
+  await page.getByRole('tab', { name: /素材库/ }).click();
+  await page.getByLabel('素材用途 product.png', { exact: true }).selectOption('PRODUCT_TRUTH');
+  await page.getByText('素材用途已更新', { exact: true }).waitFor();
+  await page.getByRole('tab', { name: '规划与处理', exact: true }).click();
+  await page.getByRole('button', { name: '项目业务配置', exact: true }).click();
+  await page.getByLabel('推理服务', { exact: true }).selectOption(providers[0].id);
+  await page.getByLabel('生图服务', { exact: true }).selectOption(providers[0].id);
+  await page.getByRole('button', { name: '保存业务配置', exact: true }).click();
+  await page.getByText('项目业务配置已保存', { exact: true }).waitFor();
+  const template = (await invoke('catalog.templates')).find(item => item.id === 'hero-image');
+  await page.getByLabel('模板来源', { exact: true }).selectOption('templates');
+  await page.getByLabel(template.name, { exact: true }).check();
+  await page.getByRole('button', { name: '提交分镜规划', exact: true }).click();
+  await page.getByRole('button', { name: '确认分镜 v1', exact: true }).click();
+  await page.getByRole('button', { name: '生成此分镜', exact: true }).click();
+  async function waitKind(kind) {
+    const deadline = Date.now()+20000;
+    while (Date.now()<deadline) {
+      const jobs = await invoke('jobs.list', { projectId: project.id });
+      const current = jobs.find(job => job.kind === kind);
+      if (current?.status === 'SUCCEEDED') return current;
+      if (current && ['FAILED','UNKNOWN','CANCELLED'].includes(current.status)) throw Error(`${kind}: ${current.status}: ${current.error}`);
+      await new Promise(resolve=>setTimeout(resolve,75));
+    }
+    throw Error(`${kind} did not finish within the test deadline`);
+  }
+  const generation = await waitKind('GENERATE');
+  assert.equal(mock.state.completions,1);
+  assert.equal(mock.state.images,1);
+  assert.equal((await invoke('workflows.result',{jobId:generation.id})).assetIds.length,1);
+  await page.locator('summary').filter({hasText:'新建分镜规划'}).click();
+  await page.getByLabel('规划方式', { exact: true }).selectOption('PI_AGENT');
+  await page.getByRole('button', { name:'提交 Pi Agent 规划', exact:true }).click();
+  await waitKind('PI_AGENT');
+  await page.screenshot({ path: join(artifacts,'planning.png'), fullPage:true });
+  await page.getByRole('button', { name:'图像处理', exact:true }).click();
+  await page.getByLabel('选择项目素材', {exact:true}).selectOption(asset.id);
+  await page.getByLabel('处理方式', {exact:true}).selectOption('LAYER');
+  await page.getByLabel('宽度', {exact:true}).fill('0.5');
+  await page.getByRole('button', {name:'提交人工分层', exact:true}).click();
+  const layer = await waitKind('LAYER');
+  await page.getByLabel('处理方式', {exact:true}).selectOption('PATTERN');
+  await page.getByLabel('花型操作', {exact:true}).selectOption('TILE_CHECK');
+  await page.getByRole('button', {name:'提交平铺验缝', exact:true}).click();
+  const pattern = await waitKind('PATTERN');
+  assert.ok((await invoke('workflows.result',{jobId:pattern.id})).tileability);
+  await page.getByLabel('处理方式', {exact:true}).selectOption('SEGMENT');
+  await page.getByLabel('分割服务', {exact:true}).selectOption(providers[0].id);
+  await page.getByLabel('分割协议', {exact:true}).selectOption('grounded_sam');
+  await page.getByLabel('分割目标', {exact:true}).fill('ceramic cup');
+  await page.getByRole('button', {name:'提交文本分割', exact:true}).click();
+  await waitKind('SEGMENT');
+  await page.getByLabel('处理方式', {exact:true}).selectOption('SUITE');
+  await page.getByLabel('视觉推理服务', {exact:true}).selectOption(providers[0].id);
+  await page.getByRole('button', {name:'提交套图反推', exact:true}).click();
+  const suiteJob = await waitKind('SUITE');
+  assert.ok(JSON.parse((await invoke('workflows.result',{jobId:suiteJob.id})).text).shots.length);
+  await page.getByRole('tab',{name:'导出任务',exact:true}).click();
+  const psdSave = join(fixture,'layers.psd');
+  await app.evaluate(({dialog},filename)=>{dialog.showSaveDialog=async()=>({canceled:false,filePath:filename});},psdSave);
+  await page.locator('.job-row').filter({has:page.getByRole('heading',{name:layer.resultName,exact:true})}).getByRole('button',{name:'保存到…',exact:true}).click();
+  await page.getByText('导出文件已保存',{exact:true}).waitFor();
+  assert.equal((await readFile(psdSave)).subarray(0,4).toString(),'8BPS');
+  await page.screenshot({path:join(artifacts,'business-jobs.png'),fullPage:true});
+  // 只终止本次隔离测试启动的后台，验证 Electron 宿主的异常重启。
+  await page.evaluate(() => {
+    window.__backendStatuses = [];
+    window.ecomgen.onBackendStatus(status => window.__backendStatuses.push(status));
+  });
+  const backendPid = await app.evaluate(({ app }) => app.getAppMetrics().find(metric => metric.name === 'EcomGen Backend')?.pid);
+  assert.ok(backendPid, 'utilityProcess exists');
+  await app.evaluate((_electron, pid) => process.kill(pid), backendPid);
+  await page.waitForFunction(() => window.__backendStatuses.includes('disconnected') && window.__backendStatuses.at(-1) === 'ready');
+  assert.equal((await invoke('projects.list'))[0].id, project.id);
+  await stop();
+  const databaseBytes = await readFile(join(userData, 'data/backend.sqlite'));
+  assert.equal(databaseBytes.includes(Buffer.from(fakeKey)), false, 'API Key never stored as plaintext');
+  await launch();
+  assert.equal((await invoke('providers.list'))[0].model, 'test-model-updated');
+  assert.equal((await invoke('jobs.list', { projectId: project.id }))[0].status, 'SUCCEEDED');
+  await page.getByRole('button', { name: '春日陶瓷杯', exact: true }).click();
+  await page.getByRole('img', { name: 'product.png', exact: true }).waitFor();
+  await page.screenshot({ path: join(artifacts, 'reopened.png'), fullPage: true });
+  assert.deepEqual(errors, [], 'No renderer page errors');
+  await writeFile(join(artifacts, 'result.json'), JSON.stringify({ status: 'passed', packaged, checks: ['original dark UI style', 'project create/edit', 'managed image protocol', 'real ZIP and manifest', 'export dedupe/save', 'encrypted credential preservation', 'IPC validation', 'sandbox', 'Pi storyboard and confirmation', 'image generation using mock protocol', 'Pi Agent planning', 'grounded SAM mock segmentation', 'manual layers and real PSD save', 'local pattern tile check', 'suite forge with schema validation', 'backend crash/restart', 'application persistence'], nativeDialogs: 'Test-controlled selections; operating-system dialog UI is not automated.' }, null, 2));
+  console.log(`Electron E2E passed (${packaged ? 'packaged' : 'development build'}). Screenshots: ${artifacts}`);
+} catch (error) {
+  if (page && !page.isClosed()) await page.screenshot({ path: join(artifacts, 'failure.png'), fullPage: true }).catch(() => {});
+  throw error;
+} finally {
+  await stop();
+  await mock.close();
+  await rm(fixture, { recursive: true, force: true });
+}

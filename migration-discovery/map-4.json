@@ -1,0 +1,538 @@
+{
+  "report": {
+    "scope": "只读验收设计，未编辑文件、运行命令或测试、访问真实 Provider，未读取 .env、用户 SQLite、用户素材或构建产物。依据 legacy 的 API/Core/Worker/Web 测试与 e2e-mock，以及 desktop 的 Backend 测试、Electron E2E、README、VALIDATION 建立下列测试证据范围内的完整行为矩阵；不声称已实现这些迁移。desktop 当前明确为 0.2.0、schema v2，220 项通过是已有记录，不能作为剩余能力完成证据。files 使用绝对路径；对应仓库路径为删除 E:/EcomGen/ 前缀。未发现 legacy/packages/core/src/repositories/*.test.ts，仓储证据集中在 repository.test.ts 与 patternDraftRepository.test.ts。",
+    "features": [
+      {
+        "id": "01-project-lifecycle",
+        "behavior": "首页画廊、默认模型配对创建、项目编辑、封面与输出预览、归档列表隔离、恢复、确认后永久删除；规划事实变化推进 planningRevision，改名和归档不推进。",
+        "desktopGap": "已有创建/编辑真实窗口验收；归档、恢复、永久删除、列表封面摘要及规划修订行为在当前 desktop 验收中未覆盖。",
+        "files": [
+          "E:/EcomGen/legacy/apps/web/src/features/home/home.test.tsx",
+          "E:/EcomGen/legacy/packages/core/src/repository.test.ts",
+          "E:/EcomGen/legacy/packages/core/src/files.test.ts",
+          "E:/EcomGen/desktop/scripts/e2e-mock.mjs"
+        ],
+        "requiredTests": [
+          "窗口操作创建→归档→筛选→恢复→再次归档→确认删除；活动项目不能直接永久删除。",
+          "用两个项目和独立文件校验级联清理，只删除目标项目产物；删除后重启仍一致。",
+          "核对封面使用最早商品图、最新输出及去重预览；无可用模型对时显示设置引导，不创建半配置项目。"
+        ]
+      },
+      {
+        "id": "02-project-assets",
+        "behavior": "商品真值/参考图分组、导入/粘贴/拖入、用途标记、删除、同内容校验及输入容量；真值不能由参考图冒充。",
+        "desktopGap": "已有安全导入、批量失败回滚和 setRole；旧版每类最多六张及同 hash 去重语义尚无 desktop 对等验收。现有 backend.test.ts 还允许再次导入同一文件，不能直接认为已具旧版去重。",
+        "files": [
+          "E:/EcomGen/legacy/apps/api/src/assetLimits.test.ts",
+          "E:/EcomGen/legacy/apps/web/src/features/workbench/workbench.test.tsx",
+          "E:/EcomGen/legacy/apps/worker/src/visual-assets.test.ts",
+          "E:/EcomGen/desktop/packages/backend/test/backend.test.ts"
+        ],
+        "requiredTests": [
+          "在真实窗口验证粘贴、拖入、文件选择及删除，列表和磁盘一致；失败导入没有残留记录或文件。",
+          "复刻六张商品图与六张参考图独立额度及相同内容拒绝；若明确调整桌面额度，必须同步契约、UI与回归依据，不能静默漏掉旧约束。",
+          "混合透明 PNG、JPEG、WebP 等实际解码输入，保留现有大小、像素、SVG、junction及路径边界测试。"
+        ]
+      },
+      {
+        "id": "03-global-asset-library",
+        "behavior": "统一上传、生成、模特、分层元素/背景、花型、印刷文件的资产库；hash 去重，类型/搜索/来源项目/时间/身份筛选及游标；独立复制到项目。",
+        "desktopGap": "当前验收只有项目素材列表，不能替代全局资产库和跨域资源回收。",
+        "files": [
+          "E:/EcomGen/legacy/apps/api/src/app.test.ts",
+          "E:/EcomGen/legacy/packages/core/src/repository.test.ts",
+          "E:/EcomGen/legacy/apps/web/src/features/workbench/workbench.test.tsx"
+        ],
+        "requiredTests": [
+          "构造各来源真实图片，验证 hash 去重、稳定游标、特殊 LIKE 字符按字面搜索、身份筛选只约束模特项。",
+          "库中选择→复制到另一项目→删除来源，目标副本仍能读取且具有新 ID/独立文件；沿用用途并执行容量和重复校验。",
+          "源文件缺失不创建副本；缩略图按内容 hash 生成；PSD composite、manifest、未完成花型不能作为可预览图入库。"
+        ]
+      },
+      {
+        "id": "04-provider-settings",
+        "behavior": "连接串解析、多模型及能力声明、模型发现、连接测试、留空保留密钥、删除引用处理；推理/生图/分割选择准确。",
+        "desktopGap": "现有表单每记录一个模型，已验加密与编辑保留；发现、探测、连接串导入及完整模型能力互斥在当前 desktop E2E 无覆盖。旧版多模型可采用桌面等效操作，但必须可完成原任务。",
+        "files": [
+          "E:/EcomGen/legacy/apps/web/src/features/providers/providers.test.tsx",
+          "E:/EcomGen/legacy/apps/web/src/features/providers/parseConnectionText.test.ts",
+          "E:/EcomGen/legacy/apps/api/src/projectPatch.test.ts",
+          "E:/EcomGen/legacy/apps/api/src/app.test.ts",
+          "E:/EcomGen/desktop/packages/backend/test/backend.test.ts"
+        ],
+        "requiredTests": [
+          "本机假 /models 验显式凭据和已保存记录两路发现；窗口勾选、保存、按能力探测，未保存模型不能探测。",
+          "覆盖 New API/cherry/ccswitch/多行连接文本与字段纠偏，仅使用假密钥；保存和自动填充本身不调用模型。",
+          "拒绝同模型同时声明生图和分割、协议与引用不符及非视觉用途；删除服务后清理引用并提示重新选择，DTO/日志/导出无密钥。"
+        ]
+      },
+      {
+        "id": "05-business-settings-and-localization",
+        "behavior": "描述、事实、禁用宣称、品牌、平台、市场、文案语言、提示词语言、模式、默认出图配置持久化；模型菜单按用途筛选。",
+        "desktopGap": "已有业务配置抽屉；README 未证明旧版全部字段、语言代码与互斥能力已迁入。",
+        "files": [
+          "E:/EcomGen/legacy/apps/web/src/features/workbench/workbench.test.tsx",
+          "E:/EcomGen/legacy/apps/web/src/lib/copyLanguage.test.ts",
+          "E:/EcomGen/legacy/apps/web/src/lib/modelOptions.test.ts",
+          "E:/EcomGen/legacy/apps/api/src/app.test.ts",
+          "E:/EcomGen/desktop/README.md"
+        ],
+        "requiredTests": [
+          "逐字段保存、清除、重启回读；语言显示中文名称但持久化规范代码，promptLanguage中英文合法值及非法值拒绝。",
+          "改模型只变目标字段；纯推理/生图/分割菜单按能力过滤，缺失引用呈现可恢复状态。",
+          "核对最终模型请求含实际事实、禁用宣称、品牌与市场/语言配置；相关变更改变规划指纹。"
+        ]
+      },
+      {
+        "id": "06-product-copywriting",
+        "behavior": "有商品图时 AI 帮写商品描述等目标；视觉推理、角色区分、独立结果记录、用户采纳后更新项目。",
+        "desktopGap": "当前 desktop 已列能力和 E2E 不包含 AI 帮写。",
+        "files": [
+          "E:/EcomGen/legacy/apps/web/src/features/workbench/workbench.test.tsx",
+          "E:/EcomGen/legacy/packages/core/src/repository.test.ts",
+          "E:/EcomGen/legacy/scripts/e2e-mock.mjs"
+        ],
+        "requiredTests": [
+          "假推理端返回专属文案；无商品图和非视觉模型在调用前拒绝；请求区分 PRODUCT_TRUTH 与 STYLE_REFERENCE。",
+          "同 regenerationKey复用，结果按job独立保存；尚未采纳不覆盖项目，采纳后窗口与重启回读一致。",
+          "两个帮写入口均有真实结果，不把一个通用规划按钮作为替代。"
+        ]
+      },
+      {
+        "id": "07-custom-templates",
+        "behavior": "用户模板创建、编辑、删除、持久化，手动规划选择、custom prompt传入及生图落地。",
+        "desktopGap": "已有内置模板包不等于用户模板管理，当前 E2E 只选择 hero-image。",
+        "files": [
+          "E:/EcomGen/legacy/packages/core/src/repository.test.ts",
+          "E:/EcomGen/legacy/apps/web/src/features/workbench/plan.test.tsx",
+          "E:/EcomGen/legacy/scripts/e2e-mock.mjs"
+        ],
+        "requiredTests": [
+          "窗口创建带独特 marker 的模板→手动选择→规划→确认→生成，假服务记录marker与最终prompt。",
+          "upsert保留createdAt，编辑改变版本/指纹，未知或已删除模板明确报错；重启后模板仍可用。",
+          "覆盖尺寸、支持参考图配置及自定义模板的运行时解析，不能仅把JSON存进配置表。"
+        ]
+      },
+      {
+        "id": "08-planning-history-and-validation",
+        "behavior": "AI/手动/套图规划、1至12张目标控制、模板白名单、事实/风险/风格锁、规划配置历史最近20份按来源job去重。",
+        "desktopGap": "已有基本规划和Pi；完整历史配置管理未迁，历史选用及丰富分镜行为无当前窗口验收。",
+        "files": [
+          "E:/EcomGen/legacy/apps/web/src/features/workbench/plan.test.tsx",
+          "E:/EcomGen/legacy/packages/core/src/repository.test.ts",
+          "E:/EcomGen/legacy/scripts/e2e-mock.mjs",
+          "E:/EcomGen/desktop/packages/backend/test/business.test.ts"
+        ],
+        "requiredTests": [
+          "假服务区分AI与手动输入：AI不夹带手动requestedTypes；目标数、套图ID、模板版本、参考素材角色与hash真实进入冻结快照。",
+          "拒绝未知模板、缺商品真值、非法事实/结果；修改规划事实或服务配置后不复用旧指纹。",
+          "生成21份配置验证仅留最近20份、来源job幂等；窗口可查看并复用配置，重启保持。"
+        ]
+      },
+      {
+        "id": "09-web-research",
+        "behavior": "联网视觉研究开关、加密搜索源配置、启用/优先级、搜索调用及各来源失败/成功审计。",
+        "desktopGap": "当前已列迁入范围未含搜索源和研究审计；不能用普通模型能力开关冒充联网研究。",
+        "files": [
+          "E:/EcomGen/legacy/apps/web/src/features/workbench/plan.test.tsx",
+          "E:/EcomGen/legacy/packages/core/src/repository.test.ts"
+        ],
+        "requiredTests": [
+          "使用本机假Brave/Tavily形状，配置优先级5与20，确认请求顺序、启用状态及审计invocationCount/attempt结果。",
+          "关闭研究时零搜索请求；打开但无可用源时明确反馈，持久化失败次数、结果数和脱敏错误。",
+          "模型任务的外部未知不得因搜索源回退逻辑被重新发起；凭据不回传renderer。"
+        ]
+      },
+      {
+        "id": "10-storyboard-editor",
+        "behavior": "分镜展示名、提示词、候选数、模式、事实/风险、删除与版本确认；草稿自动保存；生成中/已生成内容冻结，下一次生成配置可调。",
+        "desktopGap": "README明确尚缺完整分镜编辑；已有版本确认仅覆盖v1及过期版本拒绝。",
+        "files": [
+          "E:/EcomGen/legacy/apps/web/src/features/workbench/storyboard.test.tsx",
+          "E:/EcomGen/legacy/apps/web/src/lib/generateSelection.test.ts",
+          "E:/EcomGen/legacy/packages/core/src/repository.test.ts",
+          "E:/EcomGen/desktop/packages/backend/test/business.test.ts"
+        ],
+        "requiredTests": [
+          "编辑后在防抖前关闭仍落库；后台refetch不覆盖未保存文本，补丁只含脏字段。",
+          "确认版本冲突提示并重新查询；只有已确认/已生成项可选生成，已确认未生成仍可改。",
+          "已生成分镜不能删或改内容，但可改下一次模型/比例/分辨率/候选数；套图来源显示中文名，新增规划版本不丢历史项。"
+        ]
+      },
+      {
+        "id": "11-generation-batches-and-candidates",
+        "behavior": "选择多个分镜、每镜多候选、稳定generation key、generationBatchId、显式重新生成及按候选补偿；模型覆盖进入指纹。",
+        "desktopGap": "README明确单次仅一个候选；当前集成仅一镜一图，尚无完整批次/候选域。",
+        "files": [
+          "E:/EcomGen/legacy/apps/api/src/app.test.ts",
+          "E:/EcomGen/legacy/apps/web/src/features/workbench/generate.test.tsx",
+          "E:/EcomGen/legacy/apps/web/src/lib/review.test.ts",
+          "E:/EcomGen/legacy/packages/core/src/repository.test.ts",
+          "E:/EcomGen/desktop/packages/backend/test/business.test.ts"
+        ],
+        "requiredTests": [
+          "两镜各两候选、乱序完成，核对四个稳定产物ID、候选序号、批次分组；重提相同意图零新增POST。",
+          "选择集合中一项非法则整体拒绝，不留孤儿job；改变有效模型/参数或显式regenerationKey才创建新意图。",
+          "第二候选已知失败时只补偿该候选，第一候选文件/ID/计数不变；第二候选未知时禁止自动或普通重试。"
+        ]
+      },
+      {
+        "id": "12-results-and-export",
+        "behavior": "结果按分镜与首次生成批次分组、灯箱、单图保存、重新生成、可关闭失败提示；选择产物与排序后ZIP及合成长图/切片。",
+        "desktopGap": "已有全项目素材ZIP导出；这不能替代旧版选择outputIds、顺序及长图。结果关系画布也未有当前验收。",
+        "files": [
+          "E:/EcomGen/legacy/apps/web/src/features/workbench/review.test.tsx",
+          "E:/EcomGen/legacy/apps/web/src/features/workbench/export.test.tsx",
+          "E:/EcomGen/legacy/apps/worker/src/long-image.test.ts",
+          "E:/EcomGen/legacy/apps/web/src/lib/cost.test.ts",
+          "E:/EcomGen/desktop/scripts/e2e-mock.mjs"
+        ],
+        "requiredTests": [
+          "窗口选指定输出并调换顺序；解ZIP确认仅含选择项及正确manifest，不能以全素材归档代替。",
+          "实际解码长图和切片，验证统一宽度、divider、候选顺序、仅屏边界切片与高度超限显式失败；长图配置改变指纹。",
+          "灯箱单图保存、按镜重生、删Provider后的可用模型回退、编辑关闭返回关系画布；不显示假百分比或把UNKNOWN费用显示为0。"
+        ]
+      },
+      {
+        "id": "13-edit-sessions-and-masks",
+        "behavior": "持久编辑会话、计划/执行、多候选、版本关系、root/parent/turn谱系、记忆、标注、可编辑及保护mask、项目/临时参考用途和顺序。",
+        "desktopGap": "README明确未迁编辑会话与蒙版改图；普通重新生成不具备编辑语义。",
+        "files": [
+          "E:/EcomGen/legacy/apps/web/src/features/workbench/EditImageWorkspace.test.tsx",
+          "E:/EcomGen/legacy/apps/web/src/features/workbench/review.test.tsx",
+          "E:/EcomGen/legacy/apps/worker/src/edit-imaging.test.ts",
+          "E:/EcomGen/legacy/packages/core/src/repository.test.ts"
+        ],
+        "requiredTests": [
+          "真实窗口画框/拖动/涂抹/保护/标注→生成计划→执行→选择派生版本→继续编辑，重启保持会话与不可变谱系。",
+          "用非均匀RGBA图片验证保护区逐像素不变、生成透明区不被强制不透明、自然融合alpha正确；尺寸不符标注明确失败。",
+          "项目与临时参考按purpose/order冻结到turn；本次模型/分辨率/候选数覆盖生效，临时图跨会话不可读取，引用失败时仍能选择项目图。"
+        ]
+      },
+      {
+        "id": "14-segmentation-protocols",
+        "behavior": "fal文本/框、Grounded SAM、Gitee SAM3文本与gzip RLE；能力与提示方式限制；源RGB乘mask alpha而不是生成替代色。",
+        "desktopGap": "README已接三协议文本分割但框界面/模型目录缺失；当前业务测试仅Grounded SAM调用次数与一个asset结果，标题中的像素保真未被该用例直接断言。",
+        "files": [
+          "E:/EcomGen/legacy/scripts/e2e-mock.mjs",
+          "E:/EcomGen/legacy/apps/api/src/app.test.ts",
+          "E:/EcomGen/legacy/apps/worker/src/layer-composite.test.ts",
+          "E:/EcomGen/desktop/packages/backend/test/business.test.ts"
+        ],
+        "requiredTests": [
+          "逐协议走真实适配器和本机端点，验fal box_prompts、Grounded text_prompt/image与Bearer、Gitee multipart及gzip RLE解码。",
+          "使用非均匀源图、软边及透明mask，逐像素验证RGB和源alpha乘mask；全白mask/纯色图不能独立证明保真。",
+          "Gitee框输入/不支持提示语言应明确处理，禁止静默忽略用户框；空mask、坏尺寸、畸形RLE不产出伪成功文件。"
+        ]
+      },
+      {
+        "id": "15-automatic-layer-plans-and-exports",
+        "behavior": "视觉识别元素方案、自动/画框/直接提示词三入口、SAM逐元素或Seedream一次拆分、可选背景、输出hash绑定、方案/导出历史。",
+        "desktopGap": "当前仅人工矩形裁切及PSD；README明确缺智能识别、SAM自动分层和Seedream。",
+        "files": [
+          "E:/EcomGen/legacy/apps/api/src/app.test.ts",
+          "E:/EcomGen/legacy/scripts/e2e-mock.mjs",
+          "E:/EcomGen/legacy/packages/core/src/repository.test.ts",
+          "E:/EcomGen/desktop/README.md"
+        ],
+        "requiredTests": [
+          "假视觉服务返回两个元素，窗口选择自动元素、画框和直接提示词，逐项请求正确；manual必须有bbox，auto必须属于指定plan，过期方案拒绝。",
+          "Seedream仅一次POST返回带z_index/bbox的底图和alpha层；核对补绘底图在最底层、元素采用源RGB/返回alpha，协议层数上限32/16按原能力校验。",
+          "切换识别/分割模型改变指纹；查询导出历史可保存旧PSD，未完成无下载入口；重启后plan/export与job终态一致。"
+        ]
+      },
+      {
+        "id": "16-layer-stack-and-artifact-integrity",
+        "behavior": "图层显隐、重排、命名、图层PNG、可选背景、预览、ZIP与真实PSD；alpha边界裁剪和坐标正确。",
+        "desktopGap": "已有固定原图/矩形层PSD；缺完整图层栈操作验收，当前Electron只验8BPS头，Backend PSD检查跳过像素数据。",
+        "files": [
+          "E:/EcomGen/legacy/apps/web/src/features/workbench/LayerStackDialog.test.tsx",
+          "E:/EcomGen/legacy/apps/web/src/lib/layerStackExport.test.ts",
+          "E:/EcomGen/legacy/apps/worker/src/layer-composite.test.ts",
+          "E:/EcomGen/desktop/packages/backend/test/business.test.ts",
+          "E:/EcomGen/desktop/scripts/e2e-mock.mjs"
+        ],
+        "requiredTests": [
+          "窗口隐藏一层、重排并重命名后分别导出；readPsd回读尺寸、可见层顺序、坐标与实际RGBA。",
+          "ZIP校验可见层按bottom→top编号、manifest包含包含/排除及完整层序，缺字节不输出半成品。",
+          "透明空层省略、软mask保留源透明度，背景mask为元素union补集；composite不混入可编辑元素列表。"
+        ]
+      },
+      {
+        "id": "17-suite-catalog-and-forge",
+        "behavior": "内置/用户/目录来源套图、分页搜索品类及来源计数、ID精确读取、导入编辑删除刷新；全局视觉反推草稿、近期任务、编辑确认入库、套图用于规划。",
+        "desktopGap": "已有1173内置目录和项目内反推JSON；README明确用户导入编辑确认入库和完整工坊缺失。",
+        "files": [
+          "E:/EcomGen/legacy/packages/core/src/suite-catalog.test.ts",
+          "E:/EcomGen/legacy/apps/web/src/features/workbench/SuitePickerDialog.test.tsx",
+          "E:/EcomGen/legacy/apps/api/src/app.test.ts",
+          "E:/EcomGen/legacy/scripts/e2e-mock.mjs",
+          "E:/EcomGen/desktop/README.md"
+        ],
+        "requiredTests": [
+          "跨多页取完无重复；q/l1/l2只过滤items，来源范围total/l1Counts与全库originCounts正确；导入最近优先且立即可见。",
+          "无项目上传参考→反推→显示真实shotsGenerated/target→编辑草稿→确认→目录精确ID回读→用于新规划，重启仍可找回近期草稿。",
+          "非法/重复套图跳过或报错，删除游标目标不死循环；来源图必须脱离模板内容，未确认草稿不能冒充入库。"
+        ]
+      },
+      {
+        "id": "18-model-cast-library",
+        "behavior": "全局模特规格CRUD及互斥、参考脸上传清除、定妆多候选、唯一选定、身份维度搜索筛选、资产库复用及文件级联。",
+        "desktopGap": "当前desktop已列范围没有模特库；这是独立业务，不属于已完成生图的附带能力。",
+        "files": [
+          "E:/EcomGen/legacy/apps/web/src/features/models/models.test.tsx",
+          "E:/EcomGen/legacy/apps/api/src/app.test.ts",
+          "E:/EcomGen/legacy/packages/core/src/repository.test.ts",
+          "E:/EcomGen/legacy/packages/core/src/files.test.ts",
+          "E:/EcomGen/legacy/scripts/e2e-mock.mjs"
+        ],
+        "requiredTests": [
+          "窗口建模→参考脸→定妆两候选→切换选定→搜索和身份交集→保存图片；identity reference实际出现在假服务请求。",
+          "在途/成功相同输入复用不重复计费，同hash候选幂等，每模特最多一张selected；只改名保留spec和notes。",
+          "未知/互斥规格拒绝，新增规格维度补默认但不覆盖旧值；删除参考脸、单候选和模特分别清理对应文件且不影响其他模特。"
+        ]
+      },
+      {
+        "id": "19-pattern-library-and-source-entry",
+        "behavior": "独立正式花型库、标签/改名/删除/缩略图、来源与父谱系；上传、SAM提取、生成式提取、主题AI起稿、多候选各自入库；可接后续成包。",
+        "desktopGap": "当前仅项目素材本地改色/验缝，无正式花型聚合和全局源入口。",
+        "files": [
+          "E:/EcomGen/legacy/scripts/e2e-mock.mjs",
+          "E:/EcomGen/legacy/apps/api/src/app.test.ts",
+          "E:/EcomGen/legacy/packages/core/src/repository.test.ts",
+          "E:/EcomGen/legacy/apps/worker/src/pattern-background.test.ts"
+        ],
+        "requiredTests": [
+          "逐入口获得可解码正式花型，source分别UPLOADED/EXTRACTED/GENERATED，sourceJob/hash幂等；未产物行不可出现在资产库。",
+          "SAM提取用分割模型，生成式提取用图片模型且冻结mode/background；不支持透明底在POST前拒绝，返回伪透明图明确失败并保留可追查产物。",
+          "重复提交复用；多候选各自保留ID/来源；删除花型级联规格包但保留断开引用的流水线历史。"
+        ]
+      },
+      {
+        "id": "20-pattern-draft-aggregate-and-batches",
+        "behavior": "PLACEMENT/REPEAT草稿、条件与revision CAS、参考/草图/笔迹媒体、批次clientKey、候选槽位与attempt、只补失败槽位、候选定稿独立复制。",
+        "desktopGap": "README明确完整花型起稿批次未迁；仅复制算法不能构成草稿工作台。",
+        "files": [
+          "E:/EcomGen/legacy/apps/api/src/patternDrafts.test.ts",
+          "E:/EcomGen/legacy/packages/core/src/patternDraftRepository.test.ts",
+          "E:/EcomGen/legacy/apps/worker/src/job-pattern-drafts.test.ts"
+        ],
+        "requiredTests": [
+          "过期revision更新不改数据；同clientKey同payload复用、异payload冲突；同slot重复落图返回同候选。",
+          "混合成功、明确失败、未知三槽：补偿只作用明确可重试失败，attempt仅它递增，成功与未知不被重发；普通jobs.retry不能绕过专用批次补偿。",
+          "定稿同来源候选幂等，复制至正式花型目录；删草稿清理草稿域但正式花型仍能读取；跨草稿候选访问拒绝。"
+        ]
+      },
+      {
+        "id": "21-pattern-drawing-and-editing",
+        "behavior": "草稿画布绘制/擦除/撤销、选框拖动缩放及边界、笔径/取色；参考@图N与备注；带笔迹及不带笔迹改稿、多候选和父谱系。",
+        "desktopGap": "当前desktop不存在相应草稿画布与改稿验收。",
+        "files": [
+          "E:/EcomGen/legacy/apps/web/src/features/pattern-drafts/DrawSurface.test.tsx",
+          "E:/EcomGen/legacy/apps/api/src/patternDrafts.test.ts",
+          "E:/EcomGen/legacy/apps/worker/src/job-pattern-drafts.test.ts",
+          "E:/EcomGen/legacy/apps/worker/src/edit-imaging.test.ts"
+        ],
+        "requiredTests": [
+          "真实窗口指针操作选框/拖动/缩放/擦除/撤销；相同数值尺寸重新渲染不清画布，自定义取色不被预设色覆盖。",
+          "起稿传全部参考，改稿只传@到的参考，不存在编号拒绝；笔迹必须是ANNOTATION，不可将REFERENCE当笔迹。",
+          "解码假服务收到的source：有笔迹为父图叠加笔迹且不带mask；无笔迹就是原父图且不带mask；保存模型输出而非错误局部合成。",
+          "参考和笔迹独立额度；仍可补偿批次保留笔迹，全部完成后回收；REPEAT改稿自动写验缝证据。"
+        ]
+      },
+      {
+        "id": "22-pattern-derive-and-tileability",
+        "behavior": "本地色相/饱和度/亮度衍生及新花型/候选谱系；验缝逐轴分数、算法版本、属性持久化，判定不修改图稿。",
+        "desktopGap": "已有项目图hueShift与全色图VERIFIED用例；完整参数、正式花型谱系和失败/透明/周期案例未在当前业务集成覆盖。",
+        "files": [
+          "E:/EcomGen/legacy/apps/worker/src/pattern-derive.test.ts",
+          "E:/EcomGen/legacy/apps/worker/src/tile-verify.test.ts",
+          "E:/EcomGen/legacy/apps/worker/src/job-pattern-drafts.test.ts",
+          "E:/EcomGen/legacy/packages/core/src/repository.test.ts",
+          "E:/EcomGen/desktop/packages/backend/test/business.test.ts"
+        ],
+        "requiredTests": [
+          "同参数同输出、饱和度0为灰阶、local操作零Provider请求，新产物不覆盖父图且定量验证RGB变化。",
+          "均匀图通过、渐变失败、周期图通过、单轴失败不被另一轴稀释、透明隐藏RGB忽略、小图安全判定。",
+          "新花型从NONE开始，验缝只更新分数/横纵证据/算法版本，文件hash不变；算法升级重新计算不复用旧结论。"
+        ]
+      },
+      {
+        "id": "23-seam-edit-and-repeat-units",
+        "behavior": "跨边接缝改稿、环绕画布与只回写边缘带；直排/半落/三落/错砖/镜像几何及无缝单元。",
+        "desktopGap": "当前平铺验缝不包含接缝修复及repeat排列生成。",
+        "files": [
+          "E:/EcomGen/legacy/apps/worker/src/seam-edit.test.ts",
+          "E:/EcomGen/legacy/apps/worker/src/repeat-unit.test.ts",
+          "E:/EcomGen/legacy/apps/worker/src/print-pack.test.ts",
+          "E:/EcomGen/legacy/apps/api/src/patternDrafts.test.ts"
+        ],
+        "requiredTests": [
+          "非对称彩色fixture验证左右/上下wrap输入、仅两条边缘带回写、中间像素逐字节不变；补充要求实际进入prompt。",
+          "接缝改稿拒绝任何@图N；结果落新候选并重新验缝，不把普通整图生成描述为接缝修复。",
+          "逐像素验证半落/三落/错砖环绕和镜像四象限；无缝单元按源原生尺寸生成，不用印刷画布放大插值伪装。"
+        ]
+      },
+      {
+        "id": "24-print-packs",
+        "behavior": "版本化六套印刷规格、居中安全区、满印repeat排列、PRINT_FILE/MOCKUP/SEAMLESS_TILE/MANIFEST、预览与保存；规格/场景版本参与复用。",
+        "desktopGap": "当前没有印刷包与品类mockup。",
+        "files": [
+          "E:/EcomGen/legacy/apps/worker/src/print-pack.test.ts",
+          "E:/EcomGen/legacy/apps/api/src/app.test.ts",
+          "E:/EcomGen/legacy/packages/core/src/repository.test.ts",
+          "E:/EcomGen/legacy/scripts/e2e-mock.mjs"
+        ],
+        "requiredTests": [
+          "每套规格实际解码print/mockup并校验尺寸、contain-fit安全区及奇数尺寸取整；非法尺寸/50%安全边距拒绝，放大不宣称无损。",
+          "CENTERED三件与TILE四件产物齐全，manifest校验图稿hash、spec/scene版本、layout/repeatLayout、seamlessTile尺寸及接缝说明。",
+          "马克杯中央可见围边与非杯类比例正确；相同有效版本复用，旧sceneVersion或失败任务不复用；只有PRINT_FILE进入资产库。"
+        ]
+      },
+      {
+        "id": "25-listing-copy",
+        "behavior": "花型看图生成平台文案，平台、卖点、禁用词、标题/标签/描述/bullets硬约束及结果持久化。",
+        "desktopGap": "当前无Listing入口和结果域，商品描述帮写也不能替代。",
+        "files": [
+          "E:/EcomGen/legacy/scripts/e2e-mock.mjs",
+          "E:/EcomGen/legacy/packages/core/src/repository.test.ts",
+          "E:/EcomGen/legacy/apps/api/src/app.test.ts"
+        ],
+        "requiredTests": [
+          "本机视觉推理返回Etsy与Amazon形状；Etsy标题≤140、13个tag且各≤20字符，禁止词在结果校验中阻断，不只写进prompt。",
+          "非视觉模型在调用前拒绝，实际图稿与卖点传入；结果绑定pattern/job并与项目copywriting分开。",
+          "窗口查看/复制完整文案，重启保留；同输入复用，非法输出不得作为成功结果展示。"
+        ]
+      },
+      {
+        "id": "26-packaging-pipelines",
+        "behavior": "三问一次提交，上传或源任务接SOURCE→TILE_CHECK→PRINT_PACK→LISTING；顺序推进、收据、接缝裁决、取消、单步重跑和下游重置。",
+        "desktopGap": "README明确未迁；既有独立任务队列不等于持久流水线。",
+        "files": [
+          "E:/EcomGen/legacy/apps/api/src/app.test.ts",
+          "E:/EcomGen/legacy/packages/core/src/repository.test.ts",
+          "E:/EcomGen/legacy/scripts/e2e-mock.mjs"
+        ],
+        "requiredTests": [
+          "从已有花型、上传及提取三个入口跑到底，实际取回每步print文件和Listing；源入口答案错误整次回滚，不留半个花型。",
+          "验缝失败TILE停AWAITING_INPUT且PRINT_PACK尚未创建；窗口分别验证USE_CENTERED、USE_MIRROR、ALLOW_SEAM，配置先持久化再建下游任务，不能静默降级。",
+          "同参数进行中复用，终态再提交新建；单步重跑重置下游，拒绝在途/SOURCE/裁决绕过；取消中断活动请求并取消剩余步骤。",
+          "在每步交界崩溃重启，不重复提交已完成远端请求、不把未知步骤当失败补偿，收据和job/领域记录状态一致。"
+        ]
+      },
+      {
+        "id": "27-durable-jobs-and-unknown-requests",
+        "behavior": "持久化队列、并发上限、冻结快照/指纹、取消、已知失败重试、重启恢复；外部IN_FLIGHT结果未知时不得自动重发，适用于所有新增业务和多请求聚合。",
+        "desktopGap": "已有单请求UNKNOWN及本地导出恢复；VALIDATION明确缺跨多个远端请求回执台账/查询恢复/补偿工具。",
+        "files": [
+          "E:/EcomGen/desktop/packages/backend/test/backend.test.ts",
+          "E:/EcomGen/desktop/packages/backend/test/business.test.ts",
+          "E:/EcomGen/desktop/VALIDATION.md",
+          "E:/EcomGen/legacy/packages/core/src/repository.test.ts",
+          "E:/EcomGen/legacy/scripts/e2e-mock.mjs"
+        ],
+        "requiredTests": [
+          "为每个实际远端提交建立稳定requestId和持久状态；候选/元素/阶段1成功、2断线或进程退出时重启不重发1或2，后续未发请求不得冒充成功。",
+          "假服务统计hanging/aborted/POST次数；取消真正终止连接，落盘结果不再提交成功。请求已被接收但回执丢失时保留UNKNOWN与禁止普通重试。",
+          "覆盖各新增job queued/active cancel、关闭、崩溃恢复、事件丢失后查询恢复和并发≤2；本地可恢复任务清partial且领域记录同步。",
+          "RPC超时后先查持久化意图，不能用超时作为重新收费依据；SDK/Pi/图片POST自动重试关闭，幂等头不能作为兼容服务可安全重发的证明。"
+        ]
+      },
+      {
+        "id": "28-schema-v2-to-v3",
+        "behavior": "新版业务扩展通过桌面数据库v2→v3迁移，保留现有项目/素材/密文/配置/分镜/结果/任务与文件引用；支持全新初始化与重复开库。",
+        "desktopGap": "当前business.test.ts只造schema v1并断言升至2，完全没有v2→v3证据。不能使用legacy数据库或用户数据库作为fixture。",
+        "files": [
+          "E:/EcomGen/desktop/packages/backend/test/business.test.ts",
+          "E:/EcomGen/desktop/packages/backend/test/backend.test.ts",
+          "E:/EcomGen/desktop/README.md",
+          "E:/EcomGen/legacy/packages/core/src/repository.test.ts"
+        ],
+        "requiredTests": [
+          "用测试生成的真实v2结构和合法加密provider创建项目、角色素材、业务配置、确认分镜、完成结果与导出，以及QUEUED/RUNNING/UNKNOWN任务；升级后逐字段和文件hash比对。",
+          "验证v3新表外键/唯一键、缺省值、跨域全局job、不破坏既有ID/密文；同主密钥可继续对本机假Provider发起一项新任务。",
+          "重复开库无二次迁移副作用；迁移故障注入事务回滚且user_version仍为2，未知更高schema拒绝；保留已有v1→最新链路。"
+        ]
+      },
+      {
+        "id": "29-packaged-runtime-and-ui",
+        "behavior": "沿用暗色琥珀色主题、顶栏、项目画廊和设置抽屉；每项迁移在源码及独立EXE可操作，原生模块/只读目录/模板和业务资源独立随包。",
+        "desktopGap": "0.2包已验已有小范围流程；新业务资源、画布操作与安装升级卸载尚无证据。",
+        "files": [
+          "E:/EcomGen/desktop/scripts/e2e-mock.mjs",
+          "E:/EcomGen/desktop/README.md",
+          "E:/EcomGen/desktop/VALIDATION.md",
+          "E:/EcomGen/legacy/apps/web/src/reducedMotion.test.tsx"
+        ],
+        "requiredTests": [
+          "扩展真实Electron场景覆盖上述每个用户入口，使用真实指针/按钮而非仅invoke；截图核对旧版视觉、画布、结果、失败/空状态、键盘退出及reduced-motion可交互。",
+          "构建后独立EXE重跑同一矩阵：better-sqlite3、sharp、PSD/ZIP、Pi、模板、套图只读SQLite、print规格/mockup等新资源实际可读取使用，asar/unpacked路径正确。",
+          "确保包无legacy运行导入、HTTP/Redis/BullMQ/SSE依赖、.env、测试服务、用户数据与凭据；源码运行成功不能替代安装路径验收。",
+          "安装器在隔离目录/用户数据上验证安装→旧桌面数据升级→启动→卸载数据保留，并记录真实结果；签名和真实模型质量仍须准确标明验证边界。"
+        ]
+      }
+    ],
+    "interfaces": [
+      "现有桌面验证接口（已从测试确认）：projects.create/update/list、assets.list/setRole、providers.save/list/delete、business.settings/configure、catalog.templates、storyboards.list/confirm、workflows.submit/result、jobs.list/export/cancel/retry；host.importAssets/assetPath/exportPath仅宿主可用，renderer不能获得任意路径能力。",
+      "新增IPC应以desktop/packages/contracts的TypeBox为唯一手写真相源，按上述领域提供查询/命令和显式领域ID；不搬运旧HTTP URL、状态码、multipart或SSE作为桌面运行兼容层。旧409/404语义应映射为有类型的冲突/不存在错误并触发重新查询。",
+      "建议新增聚合：全局library、models/portraits、userTemplates、searchSources/researchAudit、editSessions/turns/references、layerPlans/exports、suiteDrafts/userSuites、patterns/drafts/batches/slots/candidates、printPacks/listings/pipelines/steps；这是待实现契约清单，不是已存在接口声明。",
+      "所有新提交需要可查询的intent/clientKey/fingerprint及reused语义；全局模特/花型/反推任务不强塞虚假projectId，批次/流水线提供独立持久聚合及状态查询。查询是状态真相，事件只触发失效重查。",
+      "外部请求台账建议以jobId+阶段/slot/元素+attempt定位，记录请求准备/IN_FLIGHT/已接收产物/已提交/UNKNOWN及Provider request ID；不得存密钥或把Provider动态配置替换进已排队快照。",
+      "desktop/scripts/e2e-mock.mjs已导入desktop/scripts/mock-provider.mjs；后者是建议扩展位置，本轮按限定未读取其实现。扩展假服务前应先核对其现有实现，再加入缺失端点和有脚本的响应场景。"
+    ],
+    "recommendations": [
+      "完成门槛G1：将29项逐项列为已实现/未实现，只有存在契约→持久化→执行器→UI→真实产物→行为证据的闭环才算完成。不得用复制包、按钮、静态JSON或总测试数量代替。当前README已明确缺项必须全部关闭，额外测试发现的独立业务也必须覆盖。",
+      "G2：优先实现v3聚合/稳定产物标识与逐外部请求台账，再并行接各业务入口；否则批量候选、自动分层和流水线都会在重启补偿时重复计费。先落实第27/28项，再验证跨域组合。",
+      "G3：扩展本机假服务为按场景脚本响应：规划/修订/商品帮写/Listing/元素识别/套图反推不同结构，/models、OpenAI JSON与multipart图片、Gemini图片、fal、Grounded、Gitee gzip RLE、Seedream z_index与bbox、搜索源。所有收到的请求计数、幂等键、参数、abort及引用图字节可断言。",
+      "G4：每种付费任务至少有成功、明确请求前拒绝、在途断线UNKNOWN、取消、重启和重复提交用例；多候选/多元素要有第一项成功第二项失败与第二项未知两个不同场景。假服务提供挂起、接收后断开、错误JSON、非法结果、部分成功、延迟和失序完成，不能只有永远成功的单张PNG。",
+      "G5：使用非均匀且含透明/软边的生成fixture做像素验证；图片必须解码核验尺寸、RGB/alpha及hash，PSD必须readPsd核层序/坐标/像素，ZIP必须解包核文件集合/manifest/实际字节，print与long-image核几何。8BPS/PK头、文件存在及assetIds长度不足以验收。",
+      "G6：把legacy测试中的行为迁成SQLite/IPC层真实测试，不复制Fastify注入、Redis/BullMQ或SSE依赖。保留桌面已有沙箱、宿主边界、加密、路径/junction、原子回滚、并发和恢复回归。HTTP相对URL等旧传输细节以受管资源协议的等效可用性验收。",
+      "G7：Electron测试按业务独立场景拆开，均使用隔离userData和合成素材：项目/资产库，模板/研究/规划，批次/编辑，三类分层，套图全工坊，模特库，花型源/草稿/接缝，规格包/Listing/流水线。每项必须从可见UI发起，产物由Backend查询和字节断言核验，避免只通过invoke绕过缺失界面。",
+      "G8：数据库升级验收必须增加真实桌面v2→v3fixture、迁移回滚、反复开库、旧密文可解密和原文件引用保持；不得读取或复制实际用户库，也不得把legacy库当新版升级输入。",
+      "G9：最终按desktop/AGENTS.md执行生产构建、完整测试、源码窗口验收和同一矩阵的打包EXE验收；再核安装/升级/卸载。保留每项结果、失败复现及可查看截图，README/VALIDATION据实更新，不再将0.2既有220项记录当新版完成证据。",
+      "G10：本轮证据限定为指定测试与现有文档；测试中没有直接覆盖的旧界面入口仍需主代理对照旧版实际UI补充清单。不得从“没有测试”推断“没有功能”，也不得在全部矩阵闭环前向用户宣告完整迁移。"
+    ]
+  },
+  "verification": {
+    "scope": "对迁移清单进行了只读交叉核查，依据 E:/EcomGen/legacy/scripts/e2e-mock.mjs、指定范围的 API/Core/Worker/Web 测试，以及 E:/EcomGen/desktop/scripts/e2e-mock.mjs、Backend 测试、README.md、VALIDATION.md；另针对发现的问题检查了 E:/EcomGen/desktop/packages/backend/src/business.ts、index.ts、database.ts 的相关实现。未编辑文件、运行命令或测试、调用真实 Provider，未读取用户数据库、素材、.env、构建产物或 node_modules 文件内容。以下只列遗漏、修正及实施顺序；源码推导与既有测试证据均不等同于本轮运行验收。",
+    "missing": [
+      "补充视觉输入选择与提示词编译的独立验收。旧版按 createdAt 等稳定顺序分配 P1/R1，区分 PRODUCT_TRUTH、STYLE_REFERENCE、LAYOUT_REFERENCE，并把实际图片顺序和角色说明加入最终生图 prompt；CREATIVE 只取分镜引用，非商品参考最多四张，PIXEL_PROTECTED 自动携带全部商品真值。当前桌面直接使用 referencedAssets 和 promptInstruction，尚不能证明这些语义保留。应以不同图像字节断言请求图片顺序、完整真值集合、角色文字及禁止宣称进入最终请求。证据 E:/EcomGen/legacy/apps/worker/src/visual-assets.test.ts:20、E:/EcomGen/legacy/scripts/e2e-mock.mjs:339、E:/EcomGen/desktop/packages/backend/src/business.ts:94、:249。",
+      "补充上传素材与生成输出的来源隔离。当前桌面 publish 把生成图、分割图、图层和改色结果统一写进 assets，并标为 STYLE_REFERENCE；规划读取项目全部 assets，超过十二张即拒绝。因此已有十二张输入的项目新增一个产物后，下一次规划就会被阻断；未选用的新产物也自动进入规划上下文。迁移应建立独立 output/来源类型，规划只选有效输入或显式引用，上传额度不被结果消耗。证据 E:/EcomGen/desktop/packages/backend/src/business.ts:64、:126、:209、:227。",
+      "Provider 删除验收缺少关联任务处理。除了清理项目引用，还必须清理分镜上的模型引用，并使关联 QUEUED 任务取消且不可普通重试；在途远端请求另按 UNKNOWN 台账处理。旧版测试明确断言这一行为，当前桌面删除仅删除 providers 行并发事件。证据 E:/EcomGen/legacy/packages/core/src/repository.test.ts:89、E:/EcomGen/desktop/packages/backend/src/index.ts:217。",
+      "补充批次提交后的调度故障场景。清单已覆盖输入非法时整体拒绝，但未覆盖混合“复用旧任务＋创建新任务”后调度失败：只能失败本次新建任务，不能改写已复用的成功或在途任务，也不能留下永远 QUEUED 的新任务。桌面应注入本地调度/Backend 中断故障验证等效语义，无需迁入 Redis 错误。证据 E:/EcomGen/legacy/apps/api/src/app.test.ts:876、:892。",
+      "补充重试的领域记录与历史关系。旧版失败任务重试产生新 job、终止原 job，分层规划和导出会为新 job 重建相应记录并保留 planId/includeBackground；当前桌面本地导出重试沿用同一 job ID。可以继续采用桌面自己的实现，但新增业务必须有持久 attempt 或 retryOf 关系，并验证执行器能找到正确聚合、旧产物历史保持、重复点击不会重复提交。证据 E:/EcomGen/legacy/apps/api/src/app.test.ts:127、:494、E:/EcomGen/desktop/packages/backend/test/backend.test.ts:182。",
+      "补充视觉衍生缓存。旧版对 sourceHash、maxEdge、jpegQuality、mimeType 相同的图片衍生跨实例复用，参数变化重新生成；它不同于资产库缩略图。当前桌面 vision 每次重新缩放和编码。应迁移到受管缓存目录，验证跨 Backend 重启复用与参数失效，并与源真值图片隔离。证据 E:/EcomGen/legacy/apps/worker/src/vision-cache.test.ts:8、:32、E:/EcomGen/desktop/packages/backend/src/business.ts:217。",
+      "画布行为矩阵需增加自然圈选 lasso、闭合描边、微小拖拽不置脏、底色改变时重置、笔径覆盖环跟随与离开消失；分层模式只显示平移/画框、不得显示编辑/保护遮罩，空格在输入框中正常输入、在画布中临时平移，快速 pointerdown→pointerup 后延迟帧不得抹掉选框。现有“画框/拖动/涂抹”描述不足以验收这些旧回归。证据 E:/EcomGen/legacy/apps/web/src/features/pattern-drafts/DrawSurface.test.tsx:141、:281、:325，E:/EcomGen/legacy/apps/web/src/features/workbench/EditImageWorkspace.test.tsx:356、:369、:398。",
+      "补充跨页面交互与本地化验收。旧版配置面板收缩状态跨重渲染保持；视图按分镜/输出恢复到相应阶段；错误显示中文解释及请求标识；单图下载使用分镜展示名并清理非法文件名字符。抽屉布局可沿用已经接受的桌面交互，但这些行为需明确对应入口，不能只以暗色背景截图代表完整 UI 保留。证据 E:/EcomGen/legacy/apps/web/src/features/workbench/workbench.test.tsx:294、E:/EcomGen/legacy/apps/web/src/lib/stages.test.ts:45、E:/EcomGen/legacy/apps/web/src/lib/userText.test.ts:5、E:/EcomGen/legacy/apps/web/src/lib/downloadImage.test.ts:5。",
+      "补充图层软边合成的明确预期。旧版挖空背景和元素分别乘互补软 mask 后，再做 source-over 合成，并不保证合成预览逐像素等于原图：mask=128 的单个不透明源像素，其合成 alpha 为191。需要分别验 RGB 来源、各层 alpha、背景补集和真实预览，不能把分割像素保真扩展成所有 PSD 合成必须完全重现源图。证据 E:/EcomGen/legacy/apps/worker/src/layer-composite.test.ts:72。",
+      "补充非导出任务的文件提交与回收故障点。当前桌面业务先写稳定 PNG/PSD，最后才提交领域记录；失败和启动恢复明确执行 cleanup 的只有 EXPORT。LAYER/PATTERN 在写文件后取消或失败存在孤儿文件窗口。应建立任务产物清单/暂存目录，在提交前后各故障点验证清理或安全接管已落盘字节；外部结果已经收到时不能因数据库提交失败重新调用 Provider。证据 E:/EcomGen/desktop/packages/backend/src/business.ts:200、:282、:301、E:/EcomGen/desktop/packages/backend/src/index.ts:90、:152。"
+    ],
+    "corrections": [
+      "第06项“用户采纳后更新项目”不是指定旧版证据中的现有交互。旧版仓储确实单独保存帮写结果，但 UI 在任务完成后自动把结果写入描述并 PATCH 项目，没有额外采纳按钮。应验收 PRODUCT_DESCRIPTION 与补充说明两个目标的自动回填/持久化；增加人工采纳属于产品行为调整。证据 E:/EcomGen/legacy/packages/core/src/repository.test.ts:506、E:/EcomGen/legacy/apps/web/src/features/workbench/workbench.test.tsx:120。",
+      "第08项“缺商品真值一律拒绝”范围过宽。旧版明确在 PIXEL_PROTECTED 缺真值时阻止生成；其 CREATIVE 取消 E2E 项目未导入素材仍完成规划并发出生图请求。当前桌面对 PLAN/PI_AGENT/GENERATE 统一要求存在商品真值，并在所有 workflow 前要求至少一个素材，属于现有兼容缺口，不能成为完整迁移的新验收标准。证据 E:/EcomGen/legacy/apps/web/src/features/workbench/plan.test.tsx:162、E:/EcomGen/legacy/scripts/e2e-mock.mjs:840、E:/EcomGen/desktop/packages/backend/src/business.ts:65、:70。",
+      "第02/11项需明确“六张商品图＋最多四张非商品参考”的生图输入语义。当前桌面限制 selectedAssets 总数不超过四张，且要求像素保护分镜自身显式引用商品真值；旧版会自动加入全部商品真值。不能用当前一张纯色图成功的用例证明已保留 PIXEL_PROTECTED 输入不变量。证据 E:/EcomGen/legacy/apps/worker/src/visual-assets.test.ts:20、:27、E:/EcomGen/desktop/packages/backend/src/business.ts:94。",
+      "第05项的 desktopGap 应从“文档未证明”升级为源码确认缺失。当前 BusinessSettings 默认字段没有品牌/市场/文案语言，实际 planStoryboard 调用硬编码 brandGuidelines={}、targetMarket=null、copyLanguage=null、candidatesPerType=1。必须接通契约、持久化和请求，单纯新增表单或修改 README 无效。证据 E:/EcomGen/desktop/packages/backend/src/business.ts:42、:232。",
+      "第01/08/27项需要修正“指纹仅反映业务意图”的完成判断。当前桌面快照包含完整 Project、Provider 和素材记录，并整体哈希，项目改名或更新时间变化也会改变 PLAN/GENERATE 指纹。应分离语义指纹和审计快照，明确改名/无效配置保存不产生新付费意图，有效事实、引用顺序、模型参数和显式重生意图才改变对应指纹。证据 E:/EcomGen/desktop/packages/backend/src/business.ts:127、:130；旧版规划修订边界见 E:/EcomGen/legacy/packages/core/src/repository.test.ts:356。",
+      "第27项取消不能统一要求远端任务落 CANCELLED。旧版取消 E2E 断言 CANCELLED，但桌面当前已在 IN_FLIGHT 后将取消归为 UNKNOWN，符合无法证明未计费的保守边界。应分别验“排队/未发请求取消→CANCELLED”和“远端已发请求取消→连接中断＋cancelRequested＋UNKNOWN，不重发”，流水线保留取消意图，同时保留未知步骤的外部状态。证据 E:/EcomGen/legacy/scripts/e2e-mock.mjs:871、E:/EcomGen/desktop/packages/backend/src/index.ts:152。",
+      "第22项“均匀图通过”需要尺寸前提。旧版边长小于3时分数为0，1×1均匀图在成包 E2E 中明确用于触发 AWAITING_INPUT；不能在假服务全面采用1×1图再要求验缝成功。应使用至少3×3的正常图与单独的极小图失败样例。证据 E:/EcomGen/legacy/apps/worker/src/tile-verify.test.ts:94、E:/EcomGen/legacy/scripts/e2e-mock.mjs:777。",
+      "第19项正式花型来源枚举漏列 DERIVED，第22项应明确改色后的 source=DERIVED、parentPatternId 指向父花型，不能归为 GENERATED 或简单项目素材。透明底还应细分 WHITE/TRANSPARENT/SOURCE，SOURCE 仅在源图确实透明时请求透明 PNG，不能仅凭兼容 Images 协议认定模型支持透明。证据 E:/EcomGen/legacy/scripts/e2e-mock.mjs:710、E:/EcomGen/legacy/apps/worker/src/pattern-background.test.ts:16。",
+      "第28项的 v3 是建议的下一次 schema 编号，不是原用户提出的固定实现约束。可采用连续迁移版本，完成门槛应为现有桌面 v1/v2 数据可无损升级到最终版本。当前 v1→v2 测试使用字符串 opaque-encrypted-key，只证明密文字段字节保留，没有证明合法旧密文升级后可继续解密调用；VALIDATION 对凭据保留的表述不能扩大成后者。证据 E:/EcomGen/desktop/packages/backend/test/business.test.ts:134、E:/EcomGen/desktop/packages/backend/src/database.ts:12。",
+      "不要把新增验收要求写成旧版已经通过的证据。指定范围中的搜索源测试仅证明配置排序和审计持久化，没有证明实际 Brave→Tavily 网络回退；旧版花型起稿 E2E 只生成一个候选，Listing E2E 只覆盖 Etsy，旧版 PSD 往返也存在跳过像素读取的用例。完整搜索调用、多候选、Amazon 和 PSD 像素校验仍应执行，但应标记为待验证要求。证据 E:/EcomGen/legacy/packages/core/src/repository.test.ts:494、:597、E:/EcomGen/legacy/scripts/e2e-mock.mjs:675、:692、E:/EcomGen/legacy/apps/worker/src/layer-composite.test.ts:66。",
+      "第01/29项“已有项目创建验收”不能代表原创建交互已保留。旧版一键创建会选默认模型对并直接进入项目，无模型对时打开设置且不建项目；桌面 E2E 在添加 Provider 前通过名称/描述弹窗创建项目，实际顺序相反。需明确恢复默认模型选择与设置引导，或将其记录为桌面交互差异，不能由主题一致推定功能等价。证据 E:/EcomGen/legacy/apps/web/src/features/home/home.test.tsx:106、E:/EcomGen/desktop/scripts/e2e-mock.mjs:77、:114。"
+    ],
+    "implementationOrder": [
+      "1. 先锁定行为基线与差异：把上述修正合入29项矩阵，为每项记录原行为、当前行为、待实现入口与产物断言；优先加入 CREATIVE 无图、全部真值输入、产物不污染规划、改名不重收费、Provider 删除与取消 UNKNOWN 的失败用例。主要位置 E:/EcomGen/desktop/packages/backend/test/backend.test.ts、E:/EcomGen/desktop/packages/backend/test/business.test.ts、E:/EcomGen/desktop/scripts/e2e-mock.mjs。",
+      "2. 扩展桌面契约与数据库：定义全局任务作用域、独立输出/谱系、稳定 intent、批次槽位/attempt、逐外部请求记录及任务产物清单；随后加入模板、研究、编辑、分层、套图、模特、花型和流水线聚合。保持 TypeBox 为唯一手写通信契约。先完成测试生成的合法桌面v2数据升级、有效密文继续使用、迁移回滚、重复开库和高版本拒绝，再接业务。落点 E:/EcomGen/desktop/packages/contracts、E:/EcomGen/desktop/packages/backend/src/database.ts。",
+      "3. 完成请求与产物生命周期基础：按请求记录准备、已发送、已收到字节、领域提交、明确失败和 UNKNOWN；取消后保留未知状态，重启不重复已发送请求，失败补偿只处理确定可重试的槽位。以产物暂存和提交清单解决非 EXPORT 孤儿文件与“已下载但未提交”的恢复。补充调度失败不改写复用任务、attempt历史和事件丢失后查询恢复。主要位置 E:/EcomGen/desktop/packages/backend/src/index.ts、E:/EcomGen/desktop/packages/backend/src/business.ts。",
+      "4. 扩展隔离假服务，先读取 E:/EcomGen/desktop/scripts/mock-provider.mjs 的现状，再添加场景化 /models、推理结构、三类分割、Seedream、搜索、断线/挂起/失序/部分成功及字节记录。此后每个业务增量同时补成功、重复提交、取消、未知恢复和真实产物检查，避免最后集中补验。",
+      "5. 完成项目、素材和模型配置基础闭环：归档/恢复/永久删除、封面摘要、角色独立额度与去重、粘贴/拖入/删除、全局资产库及独立复制；Provider 导入/发现/按能力测试/删除关联处理、默认模型选择；补全品牌/市场/语言等业务字段及语义指纹。让基础入口先在真实窗口可操作。",
+      "6. 接通规划域：用户模板 CRUD 与运行时解析、两个帮写目标、联网研究及审计、规划历史20份、完整分镜编辑/冻结/确认冲突。统一视觉输入选择、角色句柄、完整 prompt 编译和视觉衍生缓存，验证事实及禁止宣称进入真实请求。重点入口 E:/EcomGen/desktop/packages/backend/src/business.ts 与 E:/EcomGen/desktop/apps/desktop。",
+      "7. 在稳定输出与请求台账上实现多分镜多候选、分组结果、灯箱、按镜重生、选择排序导出和长图；随后实现持久编辑会话、root/parent/turn、参考用途、mask保护和完整画布。同步验证第一候选成功、第二失败/UNKNOWN的不同补偿行为，保留原暗色琥珀色布局与交互。",
+      "8. 复用已完成的画布、输出和台账实现三协议分割及完整分层：先框/文本协议校验，再视觉元素方案、逐元素SAM和单次Seedream；最后图层栈重排/显隐/命名、PNG/ZIP/PSD及历史导出。逐像素验证非均匀RGB、软alpha、坐标与真实PSD内容。",
+      "9. 完成全局套图工坊和模特库：套图分页搜索/来源统计、目录或宿主导入等效入口、全局反推进度/近期草稿/编辑确认入库；模特规格、参考脸、多候选唯一选定、筛选与文件级联。两域共享全局任务查询、资产库和请求台账，可在第8步接口稳定后独立推进。",
+      "10. 完成正式花型库及源入口，再实现 PLACEMENT/REPEAT 草稿、CAS、批次槽位、画布、参考编号、笔迹改稿、幂等定稿；补本地调色全部参数、DERIVED谱系、逐轴验缝、跨边接缝编辑与五种repeat几何。保持正式花型与草稿文件生命周期独立。",
+      "11. 在正式花型及验缝稳定后完成版本化印刷规格包、mockup、Listing硬校验，最后串接 SOURCE→TILE_CHECK→PRINT_PACK→LISTING 流水线。逐一验证三种接缝裁决、下游重置、取消和步骤交界崩溃；流水线 UNKNOWN 不得由普通重跑绕过。",
+      "12. 每域接通后即完成源码窗口和独立EXE的对应场景，最终执行 E:/EcomGen/desktop/AGENTS.md 要求的生产构建、完整测试、全部窗口矩阵与包资源检查，再验证隔离安装/旧桌面数据升级/卸载保留数据。更新 E:/EcomGen/desktop/README.md 与 E:/EcomGen/desktop/VALIDATION.md，只按实测闭环标记完成；当前0.2.0的220项记录不能替代此次迁移验收。"
+    ]
+  }
+}

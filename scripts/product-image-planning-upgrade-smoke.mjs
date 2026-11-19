@@ -1,0 +1,73 @@
+import assert from 'node:assert/strict';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { join } from 'node:path';
+import { makeContext, root } from './e2e-full-harness.mjs';
+import { generate, modelCapability, plan, projectInput } from './e2e-full-business.mjs';
+
+if (!process.argv[2]) throw Error('Pass a new artifacts directory');
+const artifacts = process.argv[2];
+await mkdir(artifacts);
+const previousExecutable = process.env.ECOMGEN_E2E_EXECUTABLE;
+let baseline, current, failure;
+const observations = [];
+try {
+  process.env.ECOMGEN_E2E_ARTIFACTS = join(artifacts, 'baseline-0.4.4');
+  process.env.ECOMGEN_E2E_EXECUTABLE = join(root, 'release/0.4.4/win-unpacked/PixelMuse.exe');
+  baseline = await makeContext(); await baseline.launch();
+  assert.equal(baseline.result.runtimeIdentity.version, '0.4.4');
+  await baseline.app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows().find(window => window.webContents.getURL().startsWith('file:')); window.setPosition(-4000, -4000); window.setSkipTaskbar(true); });
+  baseline.state.provider = await baseline.invoke('createProvider', { name: '升级保留本机连接', baseUrl: baseline.mock.baseUrl, apiKey: baseline.fakeKey, reasoningProtocol: 'openai', models: [modelCapability('mock-reasoner'), modelCapability('mock-image', { imageApiKind: 'openai_images' })] });
+  const project = await baseline.invoke('createProject', projectInput(baseline, '0.4.4真实桌面数据升级'));
+  const asset = await baseline.invoke('uploadAsset', { projectId: project.id, role: 'PRODUCT_TRUTH', kind: 'PRODUCT', file: await baseline.byteFile() });
+  const board = await plan(baseline, project, { planningMode: 'MANUAL', requestedTypes: ['hero-image'] });
+  const generated = await generate(baseline, project, board);
+  assert.equal(generated.outputs.length, 1);
+  const original = generated.outputs[0];
+  const before = await baseline.invoke('getProject', { projectId: project.id });
+  const requests = await baseline.invoke('getJobRequests', { jobId: generated.submission.jobs[0].id });
+  const baselineCalls = baseline.mock.state.total;
+  await baseline.stop();
+
+  delete process.env.ECOMGEN_E2E_EXECUTABLE;
+  process.env.ECOMGEN_E2E_ARTIFACTS = join(artifacts, 'current-source');
+  current = await makeContext(); await current.launch(baseline.userData);
+  await current.app.evaluate(({ BrowserWindow }) => { const window = BrowserWindow.getAllWindows().find(window => window.webContents.getURL().startsWith('file:')); window.setPosition(-4000, -4000); window.setSkipTaskbar(true); });
+  const after = await current.invoke('getProject', { projectId: project.id });
+  for (const key of ['id', 'name', 'productDescription', 'verifiedFacts', 'prohibitedClaims', 'reasoningProviderId', 'imageProviderId']) assert.deepEqual(after[key], before[key]);
+  assert.ok(after.assets.some(item => item.id === asset.id && item.role === 'PRODUCT_TRUTH'));
+  assert.ok(after.outputs.some(item => item.id === original.id && item.hash === original.hash));
+  assert.deepEqual(await current.invoke('getJobRequests', { jobId: generated.submission.jobs[0].id }), requests);
+  const unchangedOutput = (await current.invoke('listOutputs', { projectId: project.id })).items.find(item => item.id === original.id);
+  assert.equal(unchangedOutput.imagePlanning == null, true, 'old output has no invented SKU evidence');
+  await current.imageRef({ kind: 'OUTPUT', id: original.id }, { expectedHash: original.hash });
+  const provider = (await current.invoke('listProviders')).items.find(item => item.id === baseline.state.provider.id);
+  assert.equal(provider.hasApiKey, true);
+  const empty = await current.invoke('getProjectImagePlanning', { projectId: project.id });
+  assert.equal(empty.revision, 0); assert.deepEqual(empty.skus, []); assert.deepEqual(empty.imageGroups, []);
+  const sku = { id: randomUUID(), name: '显式新增升级后规格', code: 'UPGRADE-TEST', included: true, attributes: [{ name: '容量', value: '测试规格' }], productAssetIds: [asset.id] };
+  const saved = await current.invoke('saveProjectImagePlanning', { projectId: project.id, expectedRevision: 0, config: empty.config, skus: [sku], imageGroups: [] });
+  assert.equal(saved.planning.skus[0].id, sku.id);
+  assert.equal((await current.invoke('listOutputs', { projectId: project.id })).items.find(item => item.id === original.id).imagePlanning == null, true);
+  await current.stop(); await current.launch(baseline.userData);
+  assert.deepEqual(await current.invoke('getProjectImagePlanning', { projectId: project.id }), saved.planning);
+  assert.equal((await current.invoke('listOutputs', { projectId: project.id })).items.find(item => item.id === original.id).hash, original.hash);
+  assert.equal(current.mock.state.total, 0, 'opening/upgrading/saving SKU does not call the new fixture Provider');
+  assert.equal(baseline.mock.state.total, baselineCalls, 'the persisted original Provider also receives no new request during the upgrade');
+  assert.equal(current.state.events.filter(event => event.type === 'pageerror').length, 0);
+  observations.push({ scenario: 'released0.4.4 data opens in current source, preserves project/asset/output/requests/provider identity, starts with no invented SKU, and new explicit catalog survives reopen', projectId: project.id, outputId: original.id, outputHash: original.hash, skuId: sku.id });
+} catch (error) {
+  failure = error;
+  observations.push({ failure: error.stack });
+  await current?.screenshot('failure').catch(() => {});
+} finally {
+  const cleanup = [];
+  if (current) cleanup.push(...await current.cleanup());
+  if (baseline) cleanup.push(...await baseline.cleanup());
+  if (previousExecutable === undefined) delete process.env.ECOMGEN_E2E_EXECUTABLE;
+  else process.env.ECOMGEN_E2E_EXECUTABLE = previousExecutable;
+  const result = { status: !failure && !cleanup.length ? 'passed' : 'failed', scope: 'synthetic database/media upgrade from released0.4.4 to current source; not installer upgrade or real-user data', baselineIdentity: baseline?.result.runtimeIdentity, sourceIdentity: current?.result.runtimeIdentity, observations, error: failure?.message, cleanup };
+  await writeFile(join(artifacts, 'result.json'), JSON.stringify(result, null, 2));
+  console.log(JSON.stringify({ status: result.status, error: result.error, cleanup }));
+  if (failure || cleanup.length) process.exitCode = 1;
+}

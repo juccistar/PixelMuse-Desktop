@@ -1,0 +1,6 @@
+export interface MockProvider {
+  baseUrl: string;
+  state: { completions: number; images: number; segments: number; failImage: boolean; idempotencyKeys: Array<string | null> };
+  close(): Promise<void>;
+}
+export function startMockProvider(image: Buffer, options?: { mask?: Buffer; suite?: Record<string, unknown> }): Promise<MockProvider>;

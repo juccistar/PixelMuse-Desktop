@@ -1,0 +1,160 @@
+import templatesManifest from "./templates-manifest.js";
+
+export interface UpstreamVariant { description: string; overrides: Record<string, string>; }
+export interface UpstreamTemplate {
+  id: string;
+  name: string;
+  keywords: string[];
+  trigger_phrases: string[];
+  prompt_template: Record<string, string>;
+  defaults: Record<string, string>;
+  variants: Record<string, UpstreamVariant>;
+  category_tips: Record<string, string>;
+  examples: string[];
+  anti_ai_tips: string;
+  supports_image_reference: boolean;
+}
+export interface EcomTemplate extends UpstreamTemplate {
+  upstreamNumber: number;
+  defaultSize: "1024x1024" | "1024x1536";
+  productOccupancy: string;
+  whitespace: string;
+  camera: string;
+}
+
+export const ECOM_DETAILS_IMAGE_SOURCE = {
+  repository: "https://github.com/liangdabiao/ecom-details-image",
+  commit: "1ec867b743179af3598db55388f65287c4e04de1",
+  sourcePath: "packages/ecom-skill/src/templates"
+} as const;
+
+interface ManifestTemplateEntry {
+  file: string;
+  hash: string;
+  upstreamNumber: number;
+  data: UpstreamTemplate;
+}
+
+/** 构建期由 generate-manifest.mjs 固化的静态模板清单；运行时不再扫描模板目录。 */
+// 生成的字面量类型是各模板字段的联合（可选属性会推断为 undefined），需经 unknown 收敛到统一接口。
+const manifest = templatesManifest as unknown as { totalHash: string; templates: ManifestTemplateEntry[] };
+
+/** 全部上游模板内容合并后的 SHA-256 指纹；用于部署诊断和构建期漂移校验。 */
+export const ECOM_TEMPLATES_HASH: string = manifest.totalHash;
+
+const executionProfiles: Record<string, Omit<EcomTemplate, keyof UpstreamTemplate | "upstreamNumber">> = {
+  "hero-image": p("1024x1024", "35-40%", "at least 45%", "slight 3/4 full-product angle"),
+  "lifestyle-scene": p("1024x1024", "20-25%", "at least 50%", "high 45-degree environmental view"),
+  "flat-lay": p("1024x1024", "35-40%", "at least 45%", "90-degree overhead"),
+  "detail-macro": p("1024x1024", "55-60%", "at least 45%", "extreme close-up macro"),
+  "poster-banner": p("1024x1024", "25-30%", "at least 45%", "asymmetric campaign composition"),
+  "social-media": p("1024x1024", "40%", "at least 45%", "casual handheld framing"),
+  "ugc-style": p("1024x1024", "40%", "at least 45%", "imperfect smartphone snapshot"),
+  "model-showcase": p("1024x1536", "35-40%", "at least 45%", "full or medium human-centered framing"),
+  "before-after": p("1024x1024", "25-30%", "at least 45%", "split-screen comparison composition"),
+  packaging: p("1024x1024", "35-40%", "at least 45%", "three-quarter tabletop still life"),
+  infographic: p("1024x1536", "25-30%", "at least 50%", "left-product right-information composition"),
+  "creative-concept": p("1024x1024", "20-25%", "at least 50%", "dramatic conceptual perspective"),
+  "size-spec": p("1024x1536", "25-30%", "at least 50%", "orthographic or clear side profile"),
+  "multi-product": p("1024x1024", "60-70%", "at least 35%", "clean frontal product lineup"),
+  livestream: p("1024x1024", "40%", "at least 45%", "wide livestream set view"),
+  "try-on-virtual": p("1024x1536", "35-40%", "at least 45%", "full-body or torso crop"),
+  "exploded-view": p("1024x1024", "35-40%", "at least 45%", "orthographic exploded arrangement"),
+  "ghost-mannequin": p("1024x1536", "45-50%", "at least 45%", "front three-quarter apparel form"),
+  "multi-angle-grid": p("1024x1024", "60-70%", "at least 30%", "front, side, rear and macro grid"),
+  "magazine-editorial": p("1024x1536", "20-25%", "at least 50%", "editorial low-angle composition"),
+  "seasonal-campaign": p("1024x1024", "25-30%", "at least 50%", "environmental campaign composition"),
+  "luxury-atmospherics": p("1024x1024", "20-25%", "at least 50%", "dramatic side-lit hero view"),
+  "device-mockup": p("1024x1024", "35-40%", "at least 45%", "clean device perspective"),
+  storefront: p("1024x1024", "20-25%", "at least 50%", "wide store interior view"),
+  "sports-campaign": p("1024x1024", "25-30%", "at least 50%", "dynamic low-angle action frame")
+};
+
+export const ECOM_TEMPLATES: readonly EcomTemplate[] = Object.freeze(loadTemplates());
+
+export function getTemplate(templateId: string): EcomTemplate | undefined { return ECOM_TEMPLATES.find((template) => template.id === templateId); }
+export function resolveTemplates(requestedTypes?: string[]): EcomTemplate[] {
+  if (!requestedTypes?.length) return [];
+  const resolved = new Map<string, EcomTemplate>();
+  for (const requested of requestedTypes.map(normalize).filter(Boolean)) {
+    const template = ECOM_TEMPLATES.find((candidate) => [candidate.id, candidate.name, ...candidate.keywords, ...candidate.trigger_phrases].some((value) => normalize(value) === requested));
+    if (template) resolved.set(template.id, template);
+  }
+  return [...resolved.values()];
+}
+
+/** 用户自定义模板的最小输入形状；字段上限校验在 contracts 层，编译函数信任输入形状。 */
+export interface UserTemplateSource {
+  id: string;
+  name: string;
+  prompt: string;
+  defaultSize: "1024x1024" | "1024x1536";
+  supportsImageReference: boolean;
+}
+
+/** 自定义模板 ID 统一使用 custom- 前缀，与内置模板 ID 空间隔离。 */
+export function isUserTemplateId(templateId: string): boolean { return templateId.startsWith("custom-"); }
+
+/** 编译用户自定义模板为与内置模板同构的对象；执行参数用中性透传文案，不虚构与用户提示词冲突的构图约束。 */
+export function compileUserTemplate(source: UserTemplateSource): EcomTemplate {
+  return {
+    id: source.id,
+    name: source.name,
+    keywords: [],
+    trigger_phrases: [],
+    prompt_template: { custom_prompt: source.prompt },
+    defaults: {},
+    variants: {},
+    category_tips: {},
+    examples: [],
+    anti_ai_tips: "",
+    supports_image_reference: source.supportsImageReference,
+    upstreamNumber: 0,
+    defaultSize: source.defaultSize,
+    productOccupancy: "as specified in the custom template prompt",
+    whitespace: "as specified in the custom template prompt",
+    camera: "as specified in the custom template prompt"
+  };
+}
+
+/** 内置模板沿用别名匹配；自定义模板只按 id 或 name 精确匹配，保持"逐项解析"语义供上层做数量一致性校验。 */
+export function resolveTemplatesWithUser(requestedTypes: string[] | undefined, userTemplates: readonly EcomTemplate[]): EcomTemplate[] {
+  if (!requestedTypes?.length) return [];
+  const resolved = new Map<string, EcomTemplate>();
+  for (const requested of requestedTypes.map((value) => value.trim()).filter(Boolean)) {
+    const template = ECOM_TEMPLATES.find((candidate) => [candidate.id, candidate.name, ...candidate.keywords, ...candidate.trigger_phrases].some((value) => normalize(value) === normalize(requested)))
+      ?? userTemplates.find((candidate) => candidate.id === requested || candidate.name === requested);
+    if (template) resolved.set(template.id, template);
+  }
+  return [...resolved.values()];
+}
+export interface TemplateGuidance {
+  visualFields: Record<string, string>;
+  productOccupancy: string;
+  whitespace: string;
+  camera: string;
+  /** 上游按品类撰写的完整拍摄提示清单；由规划 Agent 自行挑选与商品最贴合的条目改写，不在代码里代选。 */
+  categoryTips: Record<string, string>;
+  antiAiTips: string;
+}
+export function templateGuidance(template: EcomTemplate, variantName?: string | null): TemplateGuidance {
+  const variant = variantName ? template.variants[variantName] : undefined;
+  return {
+    visualFields: { ...template.prompt_template, ...template.defaults, ...(variant?.overrides ?? {}) },
+    productOccupancy: template.productOccupancy,
+    whitespace: template.whitespace,
+    camera: template.camera,
+    categoryTips: template.category_tips,
+    antiAiTips: template.anti_ai_tips
+  };
+}
+
+function loadTemplates(): EcomTemplate[] {
+  return manifest.templates.map((entry) => {
+    const profile = executionProfiles[entry.data.id];
+    if (!profile) throw new Error(`No execution profile has been defined for upstream template ${entry.data.id}`);
+    return { ...entry.data, ...profile, upstreamNumber: entry.upstreamNumber };
+  });
+}
+function p(defaultSize: EcomTemplate["defaultSize"], productOccupancy: string, whitespace: string, camera: string): Omit<EcomTemplate, keyof UpstreamTemplate | "upstreamNumber"> { return { defaultSize, productOccupancy, whitespace, camera }; }
+function normalize(value: string): string { return value.trim().toLowerCase(); }

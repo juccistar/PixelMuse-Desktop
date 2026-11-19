@@ -1,0 +1,35 @@
+.summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; min-height: 40px; padding: 4px 8px 4px 12px; border: 1px solid var(--line-1); border-radius: var(--radius-s); background: var(--bg-1); }
+.stats { display: flex; align-items: center; gap: 16px; min-width: 0; overflow-x: auto; white-space: nowrap; scrollbar-width: none; color: var(--text-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+.stats span { display: inline-flex; flex: none; align-items: center; gap: 5px; }
+.stats [data-state='active'], .stats [data-state='done'] { color: var(--text-2); }
+.stats [data-state='done'] svg { color: var(--success); }
+.stats [data-state='failed'][data-visible] { color: var(--danger); }
+.stats [data-state='unknown'][data-visible] { color: var(--warning); }
+.detailsButton { display: inline-flex; flex: none; align-items: center; gap: 4px; font-size: 12px; }
+.drawer :global(.ant-drawer-content-wrapper) { top: var(--app-topbar-h, 60px); height: calc(100% - var(--app-topbar-h, 60px)); }
+.drawer :global(.ant-drawer-body) { padding: 16px; }
+.drawerHeader { display: grid; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid var(--line-1); }
+.filters { display: flex; flex-wrap: wrap; gap: 5px; }
+.filters button { min-height: 30px; padding: 4px 10px; border: 1px solid transparent; border-radius: var(--radius-s); background: transparent; color: var(--text-3); font: inherit; font-size: 12px; cursor: pointer; }
+.filters button:hover { color: var(--text-1); background: var(--bg-2); }
+.filters button[aria-pressed='true'] { color: var(--accent-ink); background: var(--accent); }
+.filters button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.records { min-width: 0; }
+.record { display: grid; gap: 8px; min-width: 0; padding: 16px 0; border-bottom: 1px solid var(--line-1); }
+.recordHeading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.recordHeading h3 { margin: 0; color: var(--text-1); font-size: 13px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.status { flex: none; color: var(--text-3); font-size: 11px; }
+.record[data-status='RUNNING'] .status, .record[data-status='QUEUED'] .status { color: var(--text-2); }
+.record[data-status='FAILED'] .status { color: var(--danger); }
+.record[data-status='UNKNOWN'] .status { color: var(--warning); }
+.hint { margin: 0; color: var(--text-3); font-size: 11px; line-height: 1.6; overflow-wrap: anywhere; }
+.error, .warning { margin: 0; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.error { color: var(--danger); }
+.warning { color: var(--warning); }
+.actions { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.dismiss { margin-left: auto; }
+.empty { margin: 0; padding: 32px 8px; color: var(--text-3); text-align: center; font-size: 13px; }
+.pagination { margin-top: 16px; }
+.historyText { max-height: 240px; margin: 0; padding: 10px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; border-radius: var(--radius-s); background: var(--bg-2); font-size: 12px; line-height: 1.7; }
+.historyFile { display: grid; justify-items: start; gap: 8px; }
+@media (max-width: 760px) { .summary { gap: 6px; padding-left: 8px; } .stats { gap: 10px; font-size: 11px; } .drawer :global(.ant-drawer-body) { padding: 12px; } }

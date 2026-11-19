@@ -1,0 +1,74 @@
+import { describe, expect, it } from "vitest";
+import { assertPixelProtectedInputs, assignImageHandles, selectGenerationAssets, selectVisionAssets, withGenerationAssetRoles } from "../../src/execution/visual-assets.js";
+
+function asset(id: string, role: string, createdAt: string) {
+  return { id, role, mimeType: "image/png", createdAt };
+}
+
+describe("visual asset selection", () => {
+  it("selects at most six product and six reference images in stable order", () => {
+    const assets = [
+      ...Array.from({ length: 7 }, (_, index) => asset(`product-${index + 1}`, "PRODUCT_TRUTH", `2026-01-01T00:00:0${index}Z`)),
+      ...Array.from({ length: 7 }, (_, index) => asset(`reference-${index + 1}`, "STYLE_REFERENCE", `2026-01-02T00:00:0${index}Z`)),
+    ];
+    expect(selectVisionAssets(assets).map((item) => item.id)).toEqual([
+      "product-1", "product-2", "product-3", "product-4", "product-5", "product-6",
+      "reference-1", "reference-2", "reference-3", "reference-4", "reference-5", "reference-6",
+    ]);
+  });
+
+  it("uses only storyboard references for creative generation and caps non-product references", () => {
+    const assets = [asset("product-1", "PRODUCT_TRUTH", "2026-01-01"), ...Array.from({ length: 5 }, (_, index) => asset(`reference-${index + 1}`, "STYLE_REFERENCE", `2026-01-0${index + 2}`))];
+    expect(selectGenerationAssets(assets, { mode: "CREATIVE", referencedAssets: ["product-1", "reference-1", "reference-2", "reference-3", "reference-4", "reference-5"] }).map((item) => item.id)).toEqual([
+      "product-1", "reference-1", "reference-2", "reference-3", "reference-4",
+    ]);
+  });
+
+  it("keeps all product truth images for pixel-protected generation", () => {
+    const assets = [asset("product-1", "PRODUCT_TRUTH", "2026-01-01"), asset("product-2", "PRODUCT_TRUTH", "2026-01-02"), asset("style", "STYLE_REFERENCE", "2026-01-03")];
+    expect(selectGenerationAssets(assets, { mode: "PIXEL_PROTECTED", referencedAssets: ["style"] }).map((item) => item.id)).toEqual(["product-1", "product-2", "style"]);
+  });
+
+  it.each(['CREATIVE', 'PIXEL_PROTECTED'])('SKU %s始终仅携带其明确商品子集，其他商品引用不能绕过隔离', mode => {
+    const assets = [asset('product-1', 'PRODUCT_TRUTH', '2026-01-01'), asset('product-2', 'PRODUCT_TRUTH', '2026-01-02'), asset('style', 'STYLE_REFERENCE', '2026-01-03')];
+    const imagePlanning = { purpose: 'SKU', productAssetIds: ['product-2'] };
+    const selected = selectGenerationAssets(assets, { mode, referencedAssets: ['product-1', 'style'], imagePlanning });
+    expect(selected.map(entry => entry.id)).toEqual(['product-2', 'style']);
+    const prompt = withGenerationAssetRoles('Preserve P2 exactly.', selected, assignImageHandles(assets));
+    expect(prompt).toContain('Image 1 (P2): PRODUCT TRUTH');
+    expect(prompt).not.toContain('(P1)');
+  });
+
+  it("rejects pixel-protected generation when its inputs contain no product truth", () => {
+    expect(() => assertPixelProtectedInputs([asset("style", "STYLE_REFERENCE", "2026-01-01")])).toThrow("PRODUCT_TRUTH");
+  });
+
+  it("derives stable P/R handles from role and deterministic order", () => {
+    const assets = [
+      asset("style-late", "STYLE_REFERENCE", "2026-01-03"),
+      asset("product-b", "PRODUCT_TRUTH", "2026-01-02"),
+      asset("product-a", "PRODUCT_TRUTH", "2026-01-01"),
+      asset("file.txt", "PRODUCT_TRUTH", "2026-01-04"),
+    ];
+    (assets[3] as ReturnType<typeof asset>).mimeType = "text/plain";
+    expect(Object.fromEntries(assignImageHandles(assets))).toEqual({
+      "product-a": "P1",
+      "product-b": "P2",
+      "style-late": "R1",
+    });
+  });
+
+  it("adds the actual input order and role semantics to the generation prompt", () => {
+    const assets = [
+      asset("product", "PRODUCT_TRUTH", "2026-01-01"),
+      asset("layout", "LAYOUT_REFERENCE", "2026-01-02"),
+      asset("style", "STYLE_REFERENCE", "2026-01-03"),
+    ];
+    const prompt = withGenerationAssetRoles("Create a hero image.", assets, assignImageHandles(assets));
+    expect(prompt).toContain("Image 1 (P1): PRODUCT TRUTH");
+    expect(prompt).toContain("Image 2 (R1): LAYOUT REFERENCE ONLY");
+    expect(prompt).toContain("Image 3 (R2): STYLE REFERENCE ONLY");
+    expect(prompt).toContain("Never use a non-product reference as the product");
+    expect(prompt.endsWith("Create a hero image.")).toBe(true);
+  });
+});

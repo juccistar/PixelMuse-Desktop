@@ -1,0 +1,291 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-09",
+  "status": "completed",
+  "authorization": "用户要求整理工作区并清除无用文件夹；按内容、引用和进程占用逐项审核，不按日期批量删除。",
+  "summary": {
+    "removedFiles": 15222,
+    "removedDirectories": 187,
+    "removedLogicalBytes": 4081234159,
+    "removedDecimalGB": 4.08,
+    "archivedDiagnosticFiles": 11,
+    "blockedItems": 0,
+    "diskFreeIncreaseBytes": 4058292224
+  },
+  "removed": [
+    {
+      "path": "desktop/.cache/packaging-candidates/0.4.5-20261107-1/win-unpacked",
+      "reason": "incomplete-packaging-or-writefile-probe-output",
+      "files": 3790,
+      "bytes": 715712438,
+      "status": "removed"
+    },
+    {
+      "path": "desktop/.cache/packaging-candidates/0.4.5-20261107-2/win-unpacked",
+      "reason": "incomplete-packaging-or-writefile-probe-output",
+      "files": 3790,
+      "bytes": 715712438,
+      "status": "removed"
+    },
+    {
+      "path": "desktop/.cache/packaging-candidates/0.4.5-20261107-3/win-unpacked",
+      "reason": "incomplete-packaging-or-writefile-probe-output",
+      "files": 3783,
+      "bytes": 695870123,
+      "status": "removed"
+    },
+    {
+      "path": "desktop/.cache/packaging-candidates/0.4.5-20261107-3/@ecomgendesktop-0.4.5-x64.nsis.7z",
+      "reason": "incomplete-packaging-or-writefile-probe-output",
+      "files": 1,
+      "bytes": 170077688,
+      "status": "removed"
+    },
+    {
+      "path": "desktop/.cache/packaging-candidates/0.4.5-20261107-3/PixelMuse-0.4.5-x64-Setup.exe",
+      "reason": "incomplete-packaging-or-writefile-probe-output",
+      "files": 1,
+      "bytes": 134322197,
+      "status": "removed"
+    },
+    {
+      "path": "desktop/.cache/asar-writefile-probes-20261107-1/async-default-real-payload",
+      "reason": "incomplete-packaging-or-writefile-probe-output",
+      "files": 1,
+      "bytes": 249832448,
+      "status": "removed"
+    },
+    {
+      "path": "desktop/.cache/asar-writefile-probes-20261107-1/positional-write",
+      "reason": "incomplete-packaging-or-writefile-probe-output",
+      "files": 1,
+      "bytes": 249832448,
+      "status": "removed"
+    },
+    {
+      "path": "desktop/.cache/asar-writefile-probes-20261107-1/temp-replacement",
+      "reason": "incomplete-packaging-or-writefile-probe-output",
+      "files": 1,
+      "bytes": 249832448,
+      "status": "removed"
+    },
+    {
+      "path": "desktop/release/0.4.8-failed-20261109-1/win-unpacked",
+      "reason": "incomplete-packaging-or-writefile-probe-output",
+      "files": 3841,
+      "bytes": 722868703,
+      "status": "removed"
+    },
+    {
+      "path": "desktop/release/0.4.8-nsis-failed-20261109-2/@ecomgendesktop-0.4.8-x64.nsis.7z",
+      "reason": "incomplete-packaging-or-writefile-probe-output",
+      "files": 1,
+      "bytes": 177170482,
+      "status": "removed"
+    },
+    {
+      "path": "desktop/.cache/pixelmuse-owner-final-verify-vite",
+      "reason": "regenerable-vitest-results-cache",
+      "files": 1,
+      "bytes": 121,
+      "status": "removed"
+    },
+    {
+      "path": "desktop/.cache/pixelmuse-owner-final-vite",
+      "reason": "regenerable-vitest-results-cache",
+      "files": 1,
+      "bytes": 121,
+      "status": "removed"
+    },
+    {
+      "path": "desktop/.cache/pixelmuse-owner-final-watch-vite",
+      "reason": "regenerable-vitest-results-cache",
+      "files": 1,
+      "bytes": 132,
+      "status": "removed"
+    },
+    {
+      "path": "desktop/.cache/pixelmuse-owner-final-workspace-vite",
+      "reason": "regenerable-vitest-results-cache",
+      "files": 1,
+      "bytes": 312,
+      "status": "removed"
+    },
+    {
+      "path": "desktop/.cache/pixelmuse-workspace-fix-vite",
+      "reason": "regenerable-vitest-results-cache",
+      "files": 1,
+      "bytes": 313,
+      "status": "removed"
+    },
+    {
+      "path": "desktop/.cache/pixelmuse-workspace-independent-vite",
+      "reason": "regenerable-vitest-results-cache",
+      "files": 1,
+      "bytes": 129,
+      "status": "removed"
+    },
+    {
+      "path": "desktop/.cache/pixelmuse-workspace-residual-recheck-vite",
+      "reason": "regenerable-vitest-results-cache",
+      "files": 1,
+      "bytes": 127,
+      "status": "removed"
+    },
+    {
+      "path": "desktop/.cache/settings-native-review-main-vite",
+      "reason": "regenerable-vitest-results-cache",
+      "files": 1,
+      "bytes": 131,
+      "status": "removed"
+    },
+    {
+      "path": "desktop/.cache/settings-native-review-vite",
+      "reason": "regenerable-vitest-results-cache",
+      "files": 1,
+      "bytes": 421,
+      "status": "removed"
+    },
+    {
+      "path": "desktop/.cache/settings-ui-independent-20261106-probe-vite",
+      "reason": "regenerable-vitest-results-cache",
+      "files": 1,
+      "bytes": 136,
+      "status": "removed"
+    },
+    {
+      "path": "desktop/.cache/settings-ui-independent-20261106-vite",
+      "reason": "regenerable-vitest-results-cache",
+      "files": 1,
+      "bytes": 274,
+      "status": "removed"
+    },
+    {
+      "path": "desktop/.cache/settings-verify-native-vite",
+      "reason": "regenerable-vitest-results-cache",
+      "files": 1,
+      "bytes": 529,
+      "status": "removed"
+    }
+  ],
+  "archived": [
+    {
+      "path": "desktop/.cache/packaging-candidates/0.4.5-20261107-1/win-unpacked/debug.log",
+      "bytes": 139860,
+      "sha256": "f008cb094d8d9d939ad7270ba01a0fd65d1228badcd041a7cc78d0280a5f2cf3",
+      "destination": ".workspace-tools/archive/cleanup-20261109/desktop/.cache/packaging-candidates/0.4.5-20261107-1/win-unpacked/debug.log"
+    },
+    {
+      "path": "desktop/.cache/packaging-candidates/0.4.5-20261107-2/win-unpacked/debug.log",
+      "bytes": 139860,
+      "sha256": "f008cb094d8d9d939ad7270ba01a0fd65d1228badcd041a7cc78d0280a5f2cf3",
+      "destination": ".workspace-tools/archive/cleanup-20261109/desktop/.cache/packaging-candidates/0.4.5-20261107-2/win-unpacked/debug.log"
+    },
+    {
+      "path": "desktop/.cache/packaging-candidates/0.4.5-20261107-3/win-unpacked/debug.log",
+      "bytes": 139860,
+      "sha256": "f008cb094d8d9d939ad7270ba01a0fd65d1228badcd041a7cc78d0280a5f2cf3",
+      "destination": ".workspace-tools/archive/cleanup-20261109/desktop/.cache/packaging-candidates/0.4.5-20261107-3/win-unpacked/debug.log"
+    },
+    {
+      "path": "desktop/.cache/packaging-candidates/0.4.5-20261107-1/builder-debug.yml",
+      "bytes": 1163,
+      "sha256": "505630ae8fcee6cabfc2c7ef61565364f444baf276cd619e8b19128f142d511c",
+      "destination": ".workspace-tools/archive/cleanup-20261109/desktop/.cache/packaging-candidates/0.4.5-20261107-1/builder-debug.yml"
+    },
+    {
+      "path": "desktop/.cache/packaging-candidates/0.4.5-20261107-2/builder-debug.yml",
+      "bytes": 1163,
+      "sha256": "505630ae8fcee6cabfc2c7ef61565364f444baf276cd619e8b19128f142d511c",
+      "destination": ".workspace-tools/archive/cleanup-20261109/desktop/.cache/packaging-candidates/0.4.5-20261107-2/builder-debug.yml"
+    },
+    {
+      "path": "desktop/.cache/packaging-candidates/0.4.5-20261107-3/PixelMuse-0.4.5-x64-Setup.__uninstaller.exe",
+      "bytes": 167758,
+      "sha256": "22e904baf041617b3f8a0c51a46b20b0291d0ea971bf425ceff859fa1465eaea",
+      "destination": ".workspace-tools/archive/cleanup-20261109/desktop/.cache/packaging-candidates/0.4.5-20261107-3/PixelMuse-0.4.5-x64-Setup.__uninstaller.exe"
+    },
+    {
+      "path": "desktop/.cache/asar-writefile-probes-20261107-1/probe.json",
+      "bytes": 3845,
+      "sha256": "c758c9e9023b3be31c97f660dd89569b749bddc1f7d26c01c5d6e4c086fb701d",
+      "destination": ".workspace-tools/archive/cleanup-20261109/desktop/.cache/asar-writefile-probes-20261107-1/probe.json"
+    },
+    {
+      "path": "desktop/release/0.4.8-failed-20261109-1/builder-debug.yml",
+      "bytes": 1163,
+      "sha256": "505630ae8fcee6cabfc2c7ef61565364f444baf276cd619e8b19128f142d511c",
+      "destination": ".workspace-tools/archive/cleanup-20261109/desktop/release/0.4.8-failed-20261109-1/builder-debug.yml"
+    },
+    {
+      "path": "desktop/release/0.4.8-nsis-failed-20261109-2/builder-debug.yml",
+      "bytes": 7896,
+      "sha256": "337ba046b2a9d031411fd8424b9496af42e24b3a2cd93bb07ef00938d2adc57c",
+      "destination": ".workspace-tools/archive/cleanup-20261109/desktop/release/0.4.8-nsis-failed-20261109-2/builder-debug.yml"
+    },
+    {
+      "path": "desktop/release/0.4.8-nsis-failed-20261109-2/PixelMuse-0.4.8-x64-Setup.exe",
+      "bytes": 186227,
+      "sha256": "c1e90032a07d244883609707465e2619969338cf3b70c8933d7b2630ee2b328a",
+      "destination": ".workspace-tools/archive/cleanup-20261109/desktop/release/0.4.8-nsis-failed-20261109-2/PixelMuse-0.4.8-x64-Setup.exe"
+    },
+    {
+      "path": "desktop/release/0.4.8-nsis-failed-20261109-2/PixelMuse-0.4.8-x64-Setup.__uninstaller.exe",
+      "bytes": 167758,
+      "sha256": "2fed716fe8647aaf9ead71a8ac7412adc71e3b5b53a7d418f1c2e8560ed6b0f4",
+      "destination": ".workspace-tools/archive/cleanup-20261109/desktop/release/0.4.8-nsis-failed-20261109-2/PixelMuse-0.4.8-x64-Setup.__uninstaller.exe"
+    }
+  ],
+  "retained": {
+    "releaseVersions": [
+      "0.1.0",
+      "0.2.0",
+      "0.3.0",
+      "0.4.0",
+      "0.4.1",
+      "0.4.2",
+      "0.4.3",
+      "0.4.4",
+      "0.4.5",
+      "0.4.6",
+      "0.4.8"
+    ],
+    "prefixes": [
+      "legacy",
+      "desktop/node_modules",
+      "desktop/apps",
+      "desktop/packages",
+      "desktop/scripts",
+      "desktop/migration-discovery",
+      "desktop/docs/archive",
+      "desktop/.cache/e2e-full",
+      "desktop/.cache/adversarial-verify-20261106",
+      "desktop/.cache/project-v2-baseline-20261107",
+      "desktop/.cache/product-image-planning-baseline-20261107",
+      "desktop/.cache/project-v2-implementation-userdata-20261107"
+    ],
+    "policy": "保留真实用户数据、有效升级基线、正式历史版本、最终与失败验证报告、截图、当前脚本依赖和用途未明确的文件。"
+  },
+  "verification": {
+    "protectedSourceFiles": 1903,
+    "sourceHash": "8cae54e686703e29ab71a5aae80966e19e49328c81892ee9fae55a30115cff57",
+    "sourceUnchanged": true,
+    "compiledRuntimeHash": "8e16df70526c9a47611e16f70ad7b513f424406d81d49aef6cfbae97b719c8de",
+    "compiledRuntimeUnchanged": true,
+    "protectedReleaseKeyFiles": 45,
+    "releaseKeyFilesUnchanged": true,
+    "deletionTargetsAbsent": true,
+    "diagnosticArchiveHashesVerified": true,
+    "applicationTestsRun": false,
+    "applicationLaunched": false,
+    "reason": "未修改业务源码、依赖、构建配置或运行文件；执行文件清单、哈希和引用检查。"
+  },
+  "detailedEvidence": {
+    "inventory": ".workspace-tools/cleanup-20261109/inventory-before.json",
+    "references": ".workspace-tools/cleanup-20261109/references.json",
+    "processes": ".workspace-tools/cleanup-20261109/processes-before.json",
+    "perFilePlan": ".workspace-tools/cleanup-20261109/reviewed-plan.json",
+    "execution": ".workspace-tools/cleanup-20261109/execution.json"
+  },
+  "note": "诊断归档保持原始字节；详细清单和归档位于Git忽略的.workspace-tools。历史报告中的失败构建原路径通过本记录追溯，不能再把这些路径视为仍存在的完整包。"
+}

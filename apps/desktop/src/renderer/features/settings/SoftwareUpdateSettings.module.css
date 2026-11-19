@@ -1,0 +1,12 @@
+.panel { max-width: 760px; }
+.status { margin: 22px 0 10px; font-size: 15px; }
+.details { margin: 0 0 24px; font-size: 13px; }
+.details div { display: flex; gap: 20px; padding: 10px 0; border-bottom: 1px solid var(--line-1); }
+.details dt { width: 100px; color: var(--text-3, #737373); }
+.details dd { margin: 0; overflow-wrap: anywhere; }
+.preference { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin: 24px 0; }
+.preference p { margin: 5px 0 0; }
+.progress { margin: 16px 0; }
+.notes { margin-top: 28px; }
+.notes p { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
+.alert { margin-top: 16px; }

@@ -1,0 +1,37 @@
+.modal { max-width: none; padding-bottom: 0; }
+.modal :global(.ant-modal-container) { padding: 0; overflow: hidden; background: var(--bg-0); }
+.heading { display: flex; align-items: center; gap: 18px; padding-right: 32px; }
+.heading strong { font-size: 18px; }
+.heading span { color: var(--text-3); font-size: 12px; font-weight: 400; }
+.heading > :last-child { margin-left: auto; }
+.status { margin: 12px 16px; padding: 12px 16px; border: 1px solid var(--line-1); border-radius: 8px; background: var(--bg-2); color: var(--text-2); }
+.workspace.workspace { height: calc(100vh - 154px); min-height: 520px; grid-template-columns: 60px minmax(0, 1fr) minmax(330px, 31%); grid-template-rows: minmax(0, 1fr) 110px; gap: 10px; padding: 0 16px 16px; background: var(--bg-0); }
+.workspace > aside:first-child { grid-column: 1; grid-row: 1; overflow-y: auto; border: 1px solid var(--line-1); border-radius: 8px 0 0 8px; }
+.canvasArea.canvasArea { grid-column: 2; grid-row: 1; position: relative; padding: 34px 20px 48px; overflow: hidden; background: var(--bg-1); border: 1px solid var(--line-1); border-radius: 8px; }
+.canvasArea > div:has(> img) { max-height: calc(100vh - 360px); }
+.canvasArea > div > img { max-height: calc(100vh - 360px); }
+.legend { position: absolute; top: 10px; left: 12px; z-index: 3; padding: 5px 8px; border-radius: 5px; background: rgb(0 0 0 / .65); color: #eee; font-size: 11px; pointer-events: none; }
+.canvasControls { position: absolute; bottom: 10px; left: 12px; right: 12px; display: flex; align-items: center; gap: 8px; z-index: 4; }
+.canvasControls label { margin-left: auto; font-size: 12px; }
+.panel.panel { grid-column: 3; grid-row: 1 / 3; min-height: 0; overflow-y: auto; border: 1px solid var(--line-1); border-radius: 8px; padding: 18px; gap: 14px; }
+.panel h2 { font-size: 18px; font-weight: 600; }
+.requirement { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.quickActions { display: flex; gap: 8px; }
+.quickActions > * { flex: 1; }
+.versions { grid-column: 1 / 3; grid-row: 2; display: flex; align-items: center; gap: 14px; overflow-x: auto; border: 1px solid var(--line-1); border-radius: 8px; padding: 10px 18px; background: var(--bg-1); }
+.versions > div { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; }
+.versions button { display: flex; flex-direction: column; gap: 3px; align-items: center; color: var(--text-2); background: transparent; border: 1px solid transparent; border-radius: 5px; padding: 3px; cursor: pointer; font-size: 10px; }
+.versions button[data-current='true'] { border-color: var(--text-1); }
+.versions img { height: 54px; width: 66px; object-fit: contain; border-radius: 4px; }
+.versions small { color: var(--text-3); margin-left: 16px; white-space: nowrap; }
+.feedback { gap: 3px; padding: 3px; color: var(--text-2); font-size: 10px; }
+.feedbackThumbnail { display: grid; place-items: center; width: 66px; height: 54px; border-radius: 4px; background: var(--bg-2); font-size: 18px; }
+.failedThumbnail { background: #000; }
+.failureIcon { display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; background: #d9363e; color: #fff; font-size: 11px; font-weight: 700; }
+.spinner { width: 19px; height: 19px; border: 2px solid var(--line-1); border-top-color: var(--text-1); border-radius: 50%; animation: versionSpin .8s linear infinite; }
+@keyframes versionSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 2s; } }
+.commands.commands { position: sticky; bottom: -18px; background: var(--bg-1); padding: 12px 0; display: flex; gap: 8px; z-index: 2; }
+.commands > * { flex: 1; }
+@media (max-width: 1050px) { .workspace.workspace { grid-template-columns: 48px minmax(0, 1fr) 310px; gap: 6px; padding: 0 8px 8px; } .panel.panel { padding: 12px; } }
+@media (max-width: 760px) { .workspace.workspace { height: auto; grid-template-columns: 44px minmax(0, 1fr); grid-template-rows: 55vh 110px auto; } .panel.panel { grid-column: 1 / 3; grid-row: 3; max-height: 70vh; } .heading { gap: 8px; } .heading span { display: none; } }

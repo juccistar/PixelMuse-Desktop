@@ -1,0 +1,308 @@
+{
+  "report": {
+    "scope": "只读实施映射，供主迁移流程继续完成用户要求的全部迁移；本次未修改文件、未启动任务、未读取用户数据库/素材/.env/node_modules/dist，未调用真实 Provider。根目录 E:/EcomGen；下列 files 均为绝对路径，行为说明中的 desktop/...、legacy/... 为仓库相对路径。依据 desktop/AGENTS.md，采用 Electron + React + utilityProcess Backend + SQLite + TypeBox IPC，legacy 仅作为源码迁移参考。检查发现指定的 legacy/packages/core/src/storage.ts 不存在，其实际存储实现是 files.ts。未检查旧版 React 页面，因此 UI 建议为接入策略，不是已经验证的组件迁移清单。",
+    "features": [
+      {
+        "id": "schema-v3-canonical-aggregates",
+        "behavior": "统一聚合：Provider（连接、加密凭据、模型目录）；SearchSource；Project（全部商品事实/品牌/平台/市场/文案语种/提示词语种/模型选择/分割选择/归档/planningRevision）；Asset；Storyboard + Item；Job + 不可变执行快照/调用记录；Output（候选、批次、生成快照、编辑血缘）；PlanningConfigSnapshot；EditSession + Turn + TemporaryReference；Export + LayerPlan + LayerExport；Model + Portrait；Pattern + PrintPack + ListingResult；PatternDraft + Media + Batch + Slot + Candidate；PatternPipeline + Step；UserTemplate + UserSuite + SuiteForgeResult。Library、项目封面、目录计数均为查询投影，不建另一套业务数据。旧 database.ts 只用于识别表/约束，不复用其 migrate()。",
+        "desktopGap": "desktop/packages/backend/src/database.ts 仅支持 user_version<=2，只有 projects/assets/providers/jobs/project_business/storyboards/job_results；business.ts 直接写 SQL 并把所有图片结果写 assets；缺少大部分独立聚合。推荐目标 desktop/packages/backend/src/repositories/、repository.ts、commands/，统一注入同一 SQLite 连接；删去 index.ts/business.ts 中对应重复写入逻辑。",
+        "files": [
+          "E:/EcomGen/desktop/packages/backend/src/database.ts",
+          "E:/EcomGen/desktop/packages/backend/src/index.ts",
+          "E:/EcomGen/desktop/packages/backend/src/business.ts",
+          "E:/EcomGen/desktop/packages/contracts/src/index.ts",
+          "E:/EcomGen/legacy/packages/core/src/database.ts",
+          "E:/EcomGen/legacy/packages/core/src/repository.ts"
+        ],
+        "requiredTests": [
+          "真实临时 SQLite：空库、v1、含业务数据的 v2 均可升级至 v3；再次打开不改变数据。",
+          "迁移故障注入后 user_version 和旧数据同时回滚，未知高版本关闭连接并拒绝启动。",
+          "升级前后项目/素材/Provider/job/storyboard IDs、凭据密文、任务状态、快照和产物关联一致；foreign_key_check 与 integrity_check 通过。"
+        ]
+      },
+      {
+        "id": "provider-and-search-configuration",
+        "behavior": "IPC 查询/变更族：providers.list/get/create/update/delete/discoverModels/test；searchSources.list/create/update/delete（含 priority、enabled）。Provider 必须支持一个连接下多个 ModelDefinition，模型独立声明 reasoning/image/segmentation 能力与 imageApiKind/segmentationProtocol/vision/thinking/structuredOutput；保留 openai/openai_responses/dashscope_qwen。搜索支持 brave/tavily/searxng，前两者必须有 key，searxng 可无；按 priority 排序。Provider 删除事务清空项目/分镜的模型引用，处理在途任务并通知所有受影响查询；历史快照保留。",
+        "desktopGap": "现 providers 是一个连接+一个 model，capabilities 挂 Provider；删除只 DELETE providers，不清项目 settings 中引用、不取消活动执行。缺模型发现/测试及全部搜索配置。删除时不能照搬旧仓库把所有 RUNNING 直接标 CANCELLED：外部请求已发出且结果不明者保留 UNKNOWN。模型发现仅拉目录；reasoning 测试可能发模型请求，验收用假 Provider。",
+        "files": [
+          "E:/EcomGen/legacy/apps/api/src/routes/providers.ts",
+          "E:/EcomGen/legacy/apps/api/src/routes/searchSources.ts",
+          "E:/EcomGen/legacy/packages/core/src/repositories/providerRepository.ts",
+          "E:/EcomGen/legacy/packages/core/src/repositories/searchSourceRepository.ts",
+          "E:/EcomGen/legacy/packages/core/src/secrets.ts",
+          "E:/EcomGen/desktop/packages/backend/src/index.ts",
+          "E:/EcomGen/desktop/packages/contracts/src/index.ts"
+        ],
+        "requiredTests": [
+          "模型能力和协议组合校验；缺 key、新建/更新保留 key、错误 URL、模型发现覆盖未保存连接字段。",
+          "Provider 删除与 queued/running/in-flight 任务竞争，引用清空与 UNKNOWN 不变量正确。",
+          "列表、结果、事件、错误、导出不泄漏 key/密文；搜索禁用/缺源/故障切换及优先级行为。"
+        ]
+      },
+      {
+        "id": "project-assets-library-and-lifecycle",
+        "behavior": "IPC：projects.list({archived})/get/create/update/archive/restore/delete；assets.list/import/setRole/delete/copyFromLibrary；library.list({kind,q,projectId,createdFrom,createdTo,modelSpec,cursor,limit})。Project 恢复完整业务字段，实际变化的规划字段递增 planningRevision，copyLanguage 与 promptLanguage 独立。永久删除仅允许归档项目，处理活动任务后清理该项目自有文件及子记录；重复删除可重入。Library UNION 投影 assets/outputs/portraits/layer切图/patterns/print-pack图片，先过滤再按 hash 去重，再按(createdAt,id)分页，total 不受游标影响。跨项目/库复制生成目标自有文件，不能共享可删除路径。资产角色、hash 重复与容量规则沿用旧业务。",
+        "desktopGap": "只有项目名/描述更新、素材导入/角色切换与项目内列表；缺归档/删除/封面/库。现 v2 文件是 assets/<assetId>.*、exports/<jobId>.*，不按项目分目录，不能直接套用旧 deleteProject 的目录删除。统一到 ProjectRepository 与 LibraryRepository；business.settings/configure 若暂保留，只作为 Project 的兼容投影/命令，不再保存第二份配置。",
+        "files": [
+          "E:/EcomGen/legacy/apps/api/src/routes/projects.ts",
+          "E:/EcomGen/legacy/packages/core/src/repositories/projectRepository.ts",
+          "E:/EcomGen/legacy/packages/core/src/repositories/assetRepository.ts",
+          "E:/EcomGen/legacy/packages/core/src/repositories/libraryRepository.ts",
+          "E:/EcomGen/legacy/packages/core/src/files.ts",
+          "E:/EcomGen/desktop/packages/backend/src/index.ts",
+          "E:/EcomGen/desktop/packages/backend/src/business.ts"
+        ],
+        "requiredTests": [
+          "归档/恢复/未归档删除拒绝、删除中断重试、活动任务不能在删除后重新发布结果。",
+          "删除 v2 平铺文件布局项目不误删别的项目；库复制后删源不破坏目标。",
+          "库先筛选后去重、稳定 keyset 分页、全部 kind/身份维度、总数、封面商品真值优先级。",
+          "项目事实/品牌/模型实际变化递增 revision；相同内容不同对象键序不误增；语种独立。"
+        ]
+      },
+      {
+        "id": "planning-storyboard-history-and-copywriting",
+        "behavior": "IPC：planning.submit；planningHistory.list/apply；storyboards.list/get/confirm；storyboardItems.update/delete；copywriting.submit/result；jobs 的 researchAudit 查询投影。规划快照保留完整项目配置和 AI/MANUAL 输入，每 sourceJobId 唯一，最近20份；应用前校验归属和当前模型有效性。MANUAL 必须有模板或套图、两者互斥、不能带 AI 数量；AI 不接套图分镜。支持内置与用户模板解析、PRODUCT_TRUTH/PIXEL_PROTECTED、campaignStyleLock、风险与事实声明。修改/删除受 item 状态约束，assetType 不可随意更换，确认携带版本 CAS。AI 帮写 PRODUCT_DESCRIPTION/PLANNING_INSTRUCTION 单独存结果，需商品图片和视觉推理能力；由用户采用，不直接覆盖配置。",
+        "desktopGap": "v2 有规划和分镜列表/确认，但缺 planningRevision、品牌/市场/文案语种/候选默认值、历史配置应用、条目编辑/删除、COPYWRITE、联网研究及审计。v2 确认只比较不可变 plan.version，条目编辑接入后必须同步维护可冲突的聚合修订。PI_AGENT 当前共用 PLAN 实现，保留为同一领域服务的入口，避免另建规划真相。",
+        "files": [
+          "E:/EcomGen/legacy/apps/api/src/routes/projects.ts",
+          "E:/EcomGen/legacy/apps/api/src/routes/storyboard.ts",
+          "E:/EcomGen/legacy/apps/api/src/routes/jobs.ts",
+          "E:/EcomGen/legacy/packages/core/src/repositories/projectRepository.ts",
+          "E:/EcomGen/legacy/packages/core/src/repositories/storyboardRepository.ts",
+          "E:/EcomGen/legacy/packages/core/src/repositories/jobRepository.ts",
+          "E:/EcomGen/desktop/packages/backend/src/business.ts"
+        ],
+        "requiredTests": [
+          "AI/MANUAL 参数互斥、模板/套图删除后明确报错、跨项目引用、PIXEL_PROTECTED 必须绑定真值。",
+          "过期确认与条目修改竞争；GENERATING 禁止修改，GENERATED 只允许生成设置修改，生成中/已生成禁止删除。",
+          "历史20份、sourceJob 幂等、应用已删除模型快照拒绝、应用不改旧任务快照。",
+          "研究 DISABLED/UNAVAILABLE/AVAILABLE、来源失败记录与成功计数；帮写结果不自动改项目。"
+        ]
+      },
+      {
+        "id": "generation-candidates-output-and-export",
+        "behavior": "IPC：generation.submit({itemIds,batchId,generationConfig,revision,idempotencyKey})、outputs.list/get、exports.submit/get、artifact 保存。全部 item/模型/引用先校验，再原子创建任务；支持每项多候选、模型/分辨率/比例/quality/outputFormat 覆盖。Output 保存稳定 generationKey、candidateIndex、generationBatchId、冻结 GenerationSnapshot、尺寸/hash，并保留 parent/root/session/turn 血缘；相同 generationKey 只能落一份。导出支持选定 outputIds、文件名前缀和 longImage，产出独立 Export 记录与可寻址文件。",
+        "desktopGap": "v2 每次仅生一张，candidateCount 虽存在但执行未使用；没有 outputs/generation batch，结果全部作为 STYLE_REFERENCE Asset，EXPORT 只打包项目 assets。必须用 Output 作结果真相，Asset 只表示导入或用户明确复制的参考；workflows.result 可作为领域结果投影。",
+        "files": [
+          "E:/EcomGen/legacy/apps/api/src/routes/storyboard.ts",
+          "E:/EcomGen/legacy/apps/api/src/routes/outputs.ts",
+          "E:/EcomGen/legacy/packages/core/src/repositories/outputRepository.ts",
+          "E:/EcomGen/legacy/packages/core/src/repositories/exportRepository.ts",
+          "E:/EcomGen/desktop/packages/backend/src/business.ts",
+          "E:/EcomGen/desktop/packages/backend/src/index.ts"
+        ],
+        "requiredTests": [
+          "批量输入一个错误时不留部分任务；多候选失败只重试应重试候选；重复提交无重复外部调用/Output。",
+          "generationKey 唯一与稳定产物寻址，模型切换及 prompt/事实变化改变指纹，批次分组不破坏幂等。",
+          "选图 ZIP、长图尺寸/顺序、命名冲突/非法文件名、取消/崩溃无半成品、历史导出可保存。"
+        ]
+      },
+      {
+        "id": "edit-session-and-version-branches",
+        "behavior": "IPC：editSessions.open/get/selectOutput/updateMemory、editReferences.list/import/delete/promote、editTurns.submit/get/approve。Session 可复用，记忆按 outputId 分支隔离；Turn 冻结 baseOutput、message、annotations、编辑/保护蒙版hash、参考用途/顺序/来源、配置和计划。临时参考有7天有效期，归属 session，已使用不可随意删；提升为项目素材做自有拷贝并检查容量/重复。规划先产 PLAN_READY/AWAITING_CONFIRMATION，再显式 approve 生图；Output 保留完整编辑树。蒙版与原图同尺寸，目标/保护合成策略与参考hash进入 GenerationSnapshot。",
+        "desktopGap": "v2 完全缺失；不能把编辑当通用 GENERATE 加 prompt，否则失去蒙版/审批/保护与分支历史。旧 EDIT_PLAN/EDIT_GENERATE 应迁入同一 SQLite 队列，在一个领域命令事务里创建 Turn/Job 和所需伴随状态。历史已引用临时文件应被快照固定，过期回收不能破坏在途执行。",
+        "files": [
+          "E:/EcomGen/legacy/apps/api/src/routes/editSessions.ts",
+          "E:/EcomGen/legacy/packages/core/src/repositories/editSessionRepository.ts",
+          "E:/EcomGen/legacy/packages/core/src/repositories/outputRepository.ts",
+          "E:/EcomGen/legacy/packages/core/src/files.ts",
+          "E:/EcomGen/desktop/packages/contracts/src/index.ts"
+        ],
+        "requiredTests": [
+          "编辑/保护蒙版尺寸与hash、不同用途与顺序参考、跨项目/跨session拒绝、临时过期/提升/已使用删除约束。",
+          "审批双击仅一次付费调用、审批前不能生成、取消/未知请求不自动重发。",
+          "兄弟分支记忆互不污染、选择非法 output 拒绝、旧版本与root/parent血缘重启后保持。"
+        ]
+      },
+      {
+        "id": "automatic-layer-plans-and-exports",
+        "behavior": "IPC：layerPlans.get/submit、layerExports.latest/history/submit、artifact 下载PSD/单层。LayerPlan 冻结 outputHash 与推理模型，识别结果 elements 含英文分割提示。自动元素必须携带当前 planId 且 ID 属于该计划；英文提示由 backend 补齐。manual bbox/prompt 元素可跳过识别；协议能力限制元素数。支持背景、透明元素 PNG、PSD 与所有历史导出，产物按 layerExportId 稳定寻址。分割模型声明覆盖 fal/grounded_sam/gitee_sam3，旧 Provider 路由另支持 seedream_layerize 整图分层协议，迁移时应纳入协议能力表与相应执行器。",
+        "desktopGap": "v2 只有手工矩形裁透明 PNG + PSD，单独 SEGMENT 支持三种文本协议；缺视觉识别计划、真实自动元素分割/背景处理、协议能力驱动 UI 和导出历史。LayerPlan/LayerExport 应成为独立聚合，不能只在 workflows.result 留 artifactName。",
+        "files": [
+          "E:/EcomGen/legacy/apps/api/src/routes/outputs.ts",
+          "E:/EcomGen/legacy/apps/api/src/routes/providers.ts",
+          "E:/EcomGen/legacy/packages/core/src/repositories/exportRepository.ts",
+          "E:/EcomGen/legacy/apps/api/src/routes/files.ts",
+          "E:/EcomGen/desktop/packages/backend/src/business.ts"
+        ],
+        "requiredTests": [
+          "旧 planId/不存在 auto element 拒绝、手动bbox越界、协议元素上限、提示词来源固定。",
+          "真实透明 alpha、元素与背景组合、PSD解码尺寸/图层、空mask拒绝，整图分层与逐元素协议分别用假响应。",
+          "重新识别/再次导出不覆盖历史文件；任务恢复和伴随记录同事务推进。"
+        ]
+      },
+      {
+        "id": "global-model-library-and-casting",
+        "behavior": "IPC：models.list/get/create/update/delete、modelFaces.import/remove、modelCasting.submit、portraits.list/delete/select。这里的 Model 是人物模特，不是 Provider 模型目录。ModelSpec + notes 是身份真相，参考脸是唯一身份基准；选角快照含spec/notes/faceHash及生成参数。Portrait 保存模型/任务/图像信息；每模特最多一张 selected，事务先清再设并用部分唯一索引约束。成功任务的定妆照被删光后同参数应允许重新生成。",
+        "desktopGap": "v2 完全缺失；模特与人像为全局域，不能要求 projectId 或伪造项目来承载。模特删除/换脸/定妆照删除需保护在途任务冻结的源文件。",
+        "files": [
+          "E:/EcomGen/legacy/apps/api/src/routes/models.ts",
+          "E:/EcomGen/legacy/packages/core/src/repositories/modelRepository.ts",
+          "E:/EcomGen/legacy/packages/core/src/repositories/libraryRepository.ts",
+          "E:/EcomGen/legacy/packages/core/src/files.ts"
+        ],
+        "requiredTests": [
+          "ModelSpec 一致性、参考脸设置/移除、选角快照不随后续spec变化。",
+          "并发切换仅一张selected，画像归属校验，删光产物后重新生成，库身份维度筛选正确。",
+          "模特/文件删除与在途执行竞争、取消和重启恢复不产生悬挂结果。"
+        ]
+      },
+      {
+        "id": "pattern-library-full-operations",
+        "behavior": "IPC：patterns.list/get/update/delete/upload/extract/forge/derive/variant/tileCheck；printSpecs.list、printPacks.submit/list/get；patternListings.submit/result。支持 SEGMENT/GENERATE 两种提取、透明/白底能力校验、源图hash留痕、主题起稿、多候选、HSL本地衍生、画风/构图轴预设生成式衍生。Pattern 保存来源任务/源hash/父花型/草稿候选及图稿hash，像素不可变；验缝只写判定、score、algorithmVersion。规格包冻结 specVersion/layout/repeatLayout，含 PRINT_FILE/MOCKUP/MANIFEST/SEAMLESS_TILE；模型只用于生成类和视觉 Listing。Listing 独立存标题/tags/描述等结构化结果。",
+        "desktopGap": "v2 PATTERN 只对项目 Asset 做 hueShift 或 tileCheck；没有全局 Pattern、正式来源血缘、生成式衍生、印刷规格包/场景图/manifest/Listing。规格包 layout=CENTERED 不接受 repeatLayout，TILE 才允许；透明背景能力必须按模型声明校验。产物已删/算法或场景版本改变时，成功旧任务不应永久阻止新请求。",
+        "files": [
+          "E:/EcomGen/legacy/apps/api/src/routes/patterns.ts",
+          "E:/EcomGen/legacy/packages/core/src/repositories/patternRepository.ts",
+          "E:/EcomGen/legacy/packages/core/src/files.ts",
+          "E:/EcomGen/desktop/packages/backend/src/business.ts"
+        ],
+        "requiredTests": [
+          "提取两种模式/背景能力/无效模型预先失败不落文件、源hash血缘、多个候选和父花型。",
+          "HSL参数、axis/preset匹配、验缝不改像素且记录算法版本；上传JPEG/WebP归一化PNG。",
+          "规格图尺寸/DPI/透明度/布局/平铺排列、场景图及manifest溯源一致；旧场景版本允许重新渲染。",
+          "Listing 视觉能力、平台/必含词/禁词、结果归属检查；删光产物后重提不会复用空任务。"
+        ]
+      },
+      {
+        "id": "pattern-draft-workshop",
+        "behavior": "IPC：drafts.list/get/create/update/archive/restore/delete；draftMedia.list/import/fromPattern/updateNotes/delete；draftBatches.list/submit/retryFailed；draftCandidates.list/delete/edit/tileCheck/finalize。聚合包含revision、conditions、选择/比较候选；Batch 冻结 operation/model/主题/比例/分辨率/quality/背景/排列/指令/改色/接缝/参考/笔迹/父候选/分割配置及hash。操作覆盖 GENERATE、EDIT（笔迹可选）、SEAM_EDIT、CUTOUT、RECOLOR；GENERATE/EDIT/SEAM_EDIT 可多候选，后两类确定单候选。按 draftId+clientKey 唯一提交，同key不同快照拒绝；Slot 稳定索引和attempt，只补偿失败槽位。候选像素不可变，改稿生成子候选。定稿显式复制为正式Pattern、按sourceDraftCandidateId幂等，保留真实验缝状态且不自动启动成包。",
+        "desktopGap": "v2 完全缺失。旧前端完整花型工坊依赖此聚合，不能用简单上传/改色表单替代。引用图按稳定ordinal处理@图N，悬空引用拒绝；SEAM_EDIT不下发参考图，不能接受@图N；只有EDIT读笔迹。删除媒体保留被批次快照引用文件；在途批次或作为在途父图的候选禁止删除；草稿删除先请求取消并等待安全终态。",
+        "files": [
+          "E:/EcomGen/legacy/apps/api/src/routes/patternDrafts.ts",
+          "E:/EcomGen/legacy/packages/core/src/repositories/patternDraftRepository.ts",
+          "E:/EcomGen/legacy/packages/core/src/repositories/patternRepository.ts",
+          "E:/EcomGen/legacy/packages/core/src/files.ts"
+        ],
+        "requiredTests": [
+          "revision CAS及迟到自动保存、选择/比较归属、稳定参考ordinal与@图N下发规则、笔迹/接缝参数约束。",
+          "同clientKey同输入复用/不同输入冲突，提交Batch+Slots+Job原子，补偿只运行FAILED且成功候选保留。",
+          "每槽外部请求UNKNOWN不可混成普通FAILED后自动补偿；重复点击补偿不多付费。",
+          "父子候选删除保护、快照引用媒体保留、定稿文件独立与幂等、删草稿不删正式Pattern。"
+        ]
+      },
+      {
+        "id": "pattern-pipeline-orchestration",
+        "behavior": "IPC：patternPipelines.create/list/get/continue/retryStep/cancel；支持源提取/起稿/上传入口携成包答案。执行 SOURCE(可选)→TILE_CHECK→PRINT_PACK→LISTING，position 固定，jobId唯一反查Step；所有入口调用同一领域服务。源步骤和pipeline必须在源任务可执行前写入；从既有花型直接开始验缝。TILE接缝风险进入AWAITING_INPUT/SEAM_RISK，只允许USE_CENTERED/USE_MIRROR/显式仍满印裁决。重跑重置目标及下游，拒绝活动步骤、SOURCE重跑及绕过待裁决；取消传播到当前任务和后续步骤。",
+        "desktopGap": "v2 完全缺失。只复用进行中相同pipeline（QUEUED/RUNNING/AWAITING_INPUT）；成功后再次成包是新执行。步骤任务不能被普通成功任务去重吞掉。source多候选由首个有效产物绑定pipeline；重启/失败/取消必须同步Step与Pipeline。旧pattern-pipeline.ts可迁入desktop Backend并将EcomRepository端口收窄，无需Redis入队返回值。",
+        "files": [
+          "E:/EcomGen/legacy/packages/core/src/pattern-pipeline.ts",
+          "E:/EcomGen/legacy/packages/core/src/repositories/patternPipelineRepository.ts",
+          "E:/EcomGen/legacy/apps/api/src/routes/patternPipelines.ts",
+          "E:/EcomGen/legacy/apps/api/src/routes/patterns.ts"
+        ],
+        "requiredTests": [
+          "从源/既有花型两条链、源极快完成无丢失推进、source多候选只启动一次下游。",
+          "SEAM_RISK所有裁决出口，retryStep不能绕过闸门；已完成再成包产生新历史。",
+          "任务完成+Step成功+下一Job创建同事务，崩溃恢复无重复步骤，取消/UNKNOWN禁止自动推进。"
+        ]
+      },
+      {
+        "id": "templates-suite-catalog-and-forge",
+        "behavior": "IPC：templates.list/get、userTemplates.list/create/update/delete；suites.list/get/categories/refresh/import/update/delete；suiteForge.submit/list/result/commit。用户单图模板custom-命名空间，含prompt/defaultSize/supportsImageReference。SuiteCatalog合并内置→用户库→新版数据目录投放，冲突先者优先；内置仅摘要索引、详情按需加载。保留q/l1/l2/origin/ids/cursor/limit、total/l1Counts/originCounts语义；ids查询覆盖普通筛选。Forge为全局视觉任务，多个源图+提示冻结，输出先DRAFT；允许用户编辑完整文档后显式commit到user_suites，commit幂等。仅数据库导入套图可删，内置/目录不可冒充用户记录删除。",
+        "desktopGap": "v2 catalog.suites一次性物化全部1173套完整shots，只有简化列表，无分类/分页/用户内容；SUITE结果仅JSON文本、无持久化draft/最近任务/编辑确认入库，且强制绑定项目。需要迁移SuiteCatalog和UserContentRepository并以契约输出页面所需完整定义。模板/套图删后旧分镜生成必须明确报错，不静默用其他模板。",
+        "files": [
+          "E:/EcomGen/legacy/packages/core/src/suite-catalog.ts",
+          "E:/EcomGen/legacy/packages/core/src/repositories/userContentRepository.ts",
+          "E:/EcomGen/legacy/apps/api/src/routes/userTemplates.ts",
+          "E:/EcomGen/legacy/apps/api/src/routes/suites.ts",
+          "E:/EcomGen/legacy/apps/api/src/routes/suiteForge.ts",
+          "E:/EcomGen/desktop/packages/backend/src/business.ts"
+        ],
+        "requiredTests": [
+          "目录懒加载/分页/来源与分类计数/ID精确查询、内置ID不可覆盖、无效投放文档隔离且不阻断启动。",
+          "用户模板创建编辑删除后规划/生成解析、引用已删模板显式失败。",
+          "Forge多源/视觉能力/取消/重启后最近历史、编辑文档校验、commit事务与双击幂等、缓存仅在提交后失效。"
+        ]
+      },
+      {
+        "id": "queue-storage-ipc-and-original-ui-integration",
+        "behavior": "保留SQLite唯一队列及Backend owner；Job支持项目和全局scope，typed kind、稳定fingerprint、versioned immutable snapshot、进度细节/成本/取消/retryability。内部调用记录逐外部请求保存NOT_SENT/IN_FLIGHT/COMPLETED/UNKNOWN、providerTaskId/idempotencyKey与稳定产物证据。长任务异步执行，完整查询为真相、事件只失效重查。存储覆盖asset/output/export/edit/masks/layers/thumbnail/suite-forge/model/pattern/print-pack/draft全部命名空间，临时文件+原子发布、hash校验及受控删除。文件能力通过ArtifactRef及main的预览协议/保存对话框，renderer不接真实路径。原UI迁入React时只更换数据适配层，恢复完整页面和旧暗色琥珀风格。",
+        "desktopGap": "v2 jobs仅projectId NOT NULL、8种kind，单个requestState不足以管理一个batch里多个付费调用；events仅projects/assets/providers/jobs。公共dispatch当前同步调用并立刻验证result，接入异步commands后必须await再校验，否则Promise跨边界失败。现host只能导入项目assets、保存ZIP/PSD，需扩所有引用/蒙版/图层/规格包/模特/草稿文件能力。不得复制Fastify/SSE/Redis/BullMQ；旧files.ts路径保护仅词法，不能覆盖新版managedPath的符号链接边界。",
+        "files": [
+          "E:/EcomGen/desktop/packages/backend/src/index.ts",
+          "E:/EcomGen/desktop/packages/backend/src/business.ts",
+          "E:/EcomGen/desktop/packages/contracts/src/index.ts",
+          "E:/EcomGen/legacy/packages/core/src/repositories/jobRepository.ts",
+          "E:/EcomGen/legacy/packages/core/src/files.ts",
+          "E:/EcomGen/legacy/apps/api/src/routes/files.ts",
+          "E:/EcomGen/legacy/apps/api/src/routes/jobs.ts",
+          "E:/EcomGen/desktop/AGENTS.md"
+        ],
+        "requiredTests": [
+          "真实utilityProcess IPC输入/输出校验、未知操作/多余字段/任意路径拒绝、异步命令完成后才验证返回值。",
+          "queued/running取消、重启恢复、Provider删除、external UNKNOWN不自动重试；批次逐调用恢复与已成功产物保留。",
+          "路径穿越/绝对路径/符号链接/恶意文件名、hash变化拒绝、流式ZIP取消与原子发布、删除故障可重试。",
+          "实际Electron逐页面运行旧版完整交互的等价流程；以本地假Provider覆盖长任务/候选/编辑/分层/成包/全局库，复测现有本地导入导出恢复。"
+        ]
+      }
+    ],
+    "interfaces": [
+      "契约入口只放在 desktop/packages/contracts/src/index.ts（可拆模块后统一导出）：OperationMap 的每个 input/output 为具体 TypeBox schema，Input/Output/DTO 使用Static推导；不要新增手写平行接口或一个Record<string,unknown>通用command。业务命令可按上述families命名，与旧HTTP路径一一映射但不保留HTTP transport。",
+      "建议 BackendDependencies = {repository,storage,secrets,catalog,scheduler,events,clock,idFactory}；createRepository(db)组合全部迁入子仓库；所有命令共享一个连接，transaction<T>(()=>T)中不得await。desktop/packages/backend/src/index.ts仅负责owner/lifecycle/validate+await+validate/dispatch，不继续承载业务SQL。",
+      "commands/projects.ts、providers.ts、search-sources.ts、planning.ts、storyboards.ts、generation.ts、edits.ts、layers.ts、models.ts、patterns.ts、drafts.ts、pipelines.ts、catalog.ts分别提供invoke类型对应处理器；耗时工作由提交事务冻结快照+落Job+落伴随记录后唤醒同一scheduler。查询直接构建公共投影，不从events重放状态。",
+      "执行端建议 JobExecutor<K> = {validateSnapshot,run(context,snapshot,signal),settleInTransaction}；JobSnapshot按kind判别，带schemaVersion/project或global scope/public model config/credential revision/输入artifact ID+hash/模板和提示词与算法版本/实际生成参数。旧v2 Snapshot.version=1通过只读decoder适配，不能改写已提交快照并重新计算历史fingerprint。",
+      "RequestLedger端口：beginExternal(jobId,slotOrStep,requestKey,publicRequestHash)、completeExternal(requestId,providerTaskId,evidence)、markUnknown；begin必须先持久化再发网。允许安全本地重跑或继续已知远端轮询，UNKNOWN保留待核实，不因cancel/retry-failed/provider删除而自动重新计费。",
+      "Secrets端口seal/open只在Backend内部，系统safeStorage主密钥传递沿用新版；旧SecretBox算法可参考，但禁止依赖ECOMGEN_ENCRYPTION_KEY或拷旧密钥。Provider与SearchSource公共DTO仅hasApiKey；执行快照保存credential revision，不保存可导出的密钥。",
+      "Storage端口建议stage({owner,artifactKind,stableKey,bytes|stream}) -> staged；commit/abort；readVerified(ArtifactRef,expectedHash,signal)；resolveForHost(ArtifactRef)；scheduleCleanup(owner/artifactIds)。使用新版managedDirectory/managedPath安全原语，迁入旧files.ts的全部领域put方法为薄封装；文件/DB不能伪装成单一事务，发布登记与待清理日志处理故障。",
+      "ArtifactRef用TypeBox discriminated union覆盖ASSET/OUTPUT/EDIT_REFERENCE/EDIT_MASK/LAYER_PSD/LAYER_FILE/MODEL_FACE/PORTRAIT/PATTERN/PRINT_PACK_FILE/DRAFT_MEDIA/DRAFT_CANDIDATE/THUMBNAIL/EXPORT；ID+受限fileIndex/hash，不能传任意path。renderer调用previewUrl(ref)、saveArtifact(ref)、导入对话框；仅受信任host operation解析真实路径。画布蒙版用有尺寸/字节上限的typed PNG payload或预先注册ArtifactId。",
+      "EventSchema扩为project/assets/providers/searchSources/storyboards/outputs/jobs/editSessions/models/patterns/drafts/pipelines/catalog等主题并可带projectId/aggregateId/revision；事务提交后才emit，订阅失效后重查。全局任务事件不能假填projectId。库/封面/模板计数从查询实时派生。",
+      "v2兼容API如business.settings/configure、workflows.submit/result、assetUrl仅作统一领域服务的适配层；禁止保留旧project_business JSON与新Project字段双写、同时把一个生成结果当独立Asset和Output两套真相、或在renderer维护另一个持久化业务store。"
+    ],
+    "recommendations": [
+      "先落地v3 schema+统一repositories+contracts，再并行迁入全部commands/executors与完整旧UI适配。一次性交付应覆盖上述全部families；现0.2基础不能据此宣称全部迁完。本文是只读实施图谱，未执行构建/测试，也未验证旧React具体组件。",
+      "源码迁入参考：legacy/packages/core/src/repositories/*与repository.ts -> desktop/packages/backend/src/repositories/*与repository.ts，按v3列布局改SQL并将公开类型改为桌面TypeBox推导；legacy/packages/core/src/pattern-pipeline.ts与suite-catalog.ts -> desktop/packages/backend/src/domain/；legacy/apps/api/src/routes/*内校验/事务语义 -> commands/*。源码在desktop内独立存在，绝不从legacy import或依赖旧迁移/Fastify runtime。",
+      "安全v2→v3步骤1：Backend取得唯一owner后、队列恢复/pump之前检查版本并建立一致性备份（SQLite backup API，不能只复制处于WAL模式的主文件）。v0/v1先走现有受支持迁移再进入v3；拒绝高版本。迁移自身不调用Provider、不读取用户图片、不移动产物、不重新提交Job。",
+      "安全v2→v3步骤2：由于jobs.kind CHECK和projectId NOT NULL需要放宽，使用受控影子表重建jobs及引用它的storyboards/job_results等相关表，不能在外键开启时直接DROP jobs导致引用破坏。若需暂关foreign_keys，必须在事务外关闭、事务内完成全部重建/回填/foreign_key_check/user_version=3，finally恢复并验证开启；任何失败回滚并关闭连接。不要调用旧database.ts的拆表迁移。",
+      "安全v2→v3步骤3：Project保留ID/name/description/timestamps，把project_business.settings一次归并至完整Project，默认品牌{}、市场/文案语种null、候选1、research=false、归档null、planningRevision初值；随后删除该平行配置表或只读兼容view。旧provider每行变成一个Provider+一个模型目录项，保留ID、加密key和updatedAt；protocol映射imageApiKind，现vision/thinking/structured能力复制，未声明能力不猜测。不存在provider的当前项目选择置空并保留历史快照。",
+      "安全v2→v3步骤4：保留全部Job的ID/kind/status/requestState/fingerprint/snapshot/resultName及原始快照字节，增加snapshotVersion=旧版本，旧EXPORT版本1也必须可读。queued旧业务可由明确legacy-decoder执行；RUNNING在实际恢复阶段根据requestState变UNKNOWN或安全重排，伴随聚合状态同事务更新。不能把有结果不明的任务迁成普通FAILED从而允许自动补偿。",
+      "安全v2→v3步骤5：storyboards.data解析一次生成规范Storyboard/Items，保留plan/item IDs/version/confirmed/job关联；从原生成job snapshot.item及request.storyboardId追溯Output。仅明确GENERATE结果的assetIds提升为Output，保留原assetId作为稳定公共artifact别名；旧素材引用指向同一artifact，不复制成两份领域真相。SEGMENT/LAYER/PATTERN旧结果保持可读的既有artifact/派生来源，不虚构正式花型或成功自动分层。无法可靠归类的历史记录保留并标兼容来源，禁止丢弃。",
+      "安全v2→v3步骤6：旧文件仍按assets/<id>和exports/<jobId>引用，迁移不搬文件；建统一artifact登记/兼容别名以支持新存储命名空间及按owner删除。ZIP/PSD旧resultName和保存能力保留；job_results中SUITE文本可转换为待确认ForgeDraft，必须先契约校验，不能自动commit。job_results其余字段改为规范聚合的派生投影或只读历史，不继续双写。",
+      "去重需按业务政策统一：v2 jobs_dedupe把所有SUCCEEDED fingerprint永久唯一，不适合删除产物后重做、旧算法重算、成功pipeline再次成包。推荐fingerprint普通索引+同owner事务检查；对有fingerprint的QUEUED/RUNNING/UNKNOWN保留部分唯一约束，SUCCEEDED仅在版本和产物仍有效时复用，显式新执行使用executionKey。Batch另以(draftId,clientKey)唯一，Output generationKey唯一，Candidate(batchId,slotIndex)唯一，PlanningSnapshot sourceJob唯一，Step jobId唯一，Portrait每model单selected。",
+      "不要照搬旧重试缺陷：旧JobRepository以providerTaskId标记未知且仅保留部分伴随表，通用retry会新建job；桌面已有独立UNKNOWN更强，应推广为逐调用账本。draft retryFailed/pipeline retryStep必须尊重未知调用，不能通过局部重试入口绕过。任务重试需要伴随记录与新的attempt或job一起原子创建，不只重置Job状态。",
+      "完整UI优先恢复原页/抽屉/画布/历史/库/比较/成包裁决等交互，通过一个typed DesktopClient替换fetch/EventSource/upload/download；renderer只消费IPC DTO、artifact URL与失效事件。旧SSE路由映射onChanged；multipart映射host导入或有上限图像payload；旧下载URL映射保存对话框。保持暗色琥珀、顶栏、项目画廊和抽屉布局，去掉旧服务器连接概念。",
+      "验收采用假Provider与真实SQLite/utilityProcess/Electron；必须覆盖迁移、恢复、取消、逐槽补偿、未知请求、历史产物、编辑保护像素、自动分层与PSD、规格包及接缝裁决、全局模板/模特/库/搜索/文案。完成实现后运行desktop规定build/test/test:e2e:mock及真实窗口操作；通过前不要更新文档声称全部迁移完成。"
+    ]
+  },
+  "verification": {
+    "scope": "对 E:/EcomGen 下指定的旧版 core/repositories/routes 与当前 desktop Backend/TypeBox 契约完成只读核查。未修改文件、读取用户数据库/素材/.env/node_modules/dist、启动任务或调用 Provider；未运行构建和测试。legacy/packages/core/src/storage.ts 确实不存在，实际实现是 E:/EcomGen/legacy/packages/core/src/files.ts。本结果只列映射需要补充或纠正的内容及实施顺序；没有验证旧版 Worker 的完整执行算法、React 页面或最终安装包，不能据此认定业务或 UI 已经完全等价。",
+    "missing": [
+      "分镜必须保留“追加规划”的业务语义。E:/EcomGen/legacy/packages/core/src/repositories/storyboardRepository.ts:52 的 saveStoryboard 只更新当前分镜头，保留既有 items，并以 MAX(sort_order)+1 追加；listStoryboardItems 返回全部版本条目，confirmStoryboard 只把 DRAFT 条目改为 CONFIRMED。映射应明确多次规划后既有图片、旧条目状态、排序和引用继续存在；不能迁成只显示/保留最新一次计划，也不能确认时重置 GENERATING/GENERATED。增加两次规划、确认、生成及重启后的保留测试。",
+      "规划请求缺少明确的逐次覆盖字段和别名规则。E:/EcomGen/legacy/apps/api/src/routes/projects.ts:287 支持模板 ID/alias、imageTypes 兼容输入、candidatesPerType、imageResolution、imageAspectRatio、regenerationKey；这些与项目默认值的优先级需要进入契约、快照和原 UI 适配。尤其“重新规划”必须产生一次明确的新执行，普通重复提交仍保持幂等。别名可在桌面输入端统一归一化，不需要保留 HTTP 请求形状。",
+      "草稿聚合需要补上 composeType、单调不复用的 next_media_ordinal、候选 transform/hasAlpha、验缝 horizontal/vertical、列表 candidateCount/preview 投影，以及删除候选时事务清空 selected/compare、断开子候选父指针并保留子候选的规则。证据为 E:/EcomGen/legacy/packages/core/src/database.ts:750、E:/EcomGen/legacy/packages/core/src/repositories/patternDraftRepository.ts:179 和 :398。仅写“稳定 ordinal/候选删除保护”不足以防止删除图2后把新图重新编号为图2，或留下选择悬挂。",
+      "草稿笔迹的容量回收遗漏。E:/EcomGen/legacy/apps/api/src/routes/patternDrafts.ts:265 的 pruneDraftAnnotations 保留仍有 QUEUED/RUNNING/FAILED 槽位需要的笔迹，回收不再需要的笔迹；普通参考图采用更长的快照保留规则。新版还需把 UNKNOWN 纳入保留集合。若统一成所有快照输入永久保留，用户持续改稿会撞上笔迹数量上限；若统一在任务结束时删除，失败补偿又会缺文件。",
+      "需要显式新增 jobs.get(jobId) 与全局任务查询。当前 E:/EcomGen/desktop/packages/contracts/src/index.ts:101 只有按 projectId 列任务；旧版 E:/EcomGen/legacy/apps/api/src/routes/jobs.ts:12 可独立查询任务，E:/EcomGen/legacy/packages/core/src/repositories/jobRepository.ts:119 支持全局类型历史。全局模特、套图反推、花型、草稿及尚未绑定 patternId 的 SOURCE 流水线必须在刷新和重启后可找回，不能仅靠提交返回值或项目任务列表。",
+      "套图反推还需保留完整 hints：name、l1/l2/leaf、productFamily、targetShotCount、userInstruction，以及有上下限的多图输入、分镜数进度明细和包含运行中/失败任务的最近历史。证据为 E:/EcomGen/legacy/apps/api/src/routes/suiteForge.ts:37、:70、:105。来源图需要保留到可重试/历史引用不再需要；E:/EcomGen/legacy/packages/core/src/files.ts:68 明确旧版没有按任务终态自动回收来源图，不能套用普通临时上传清理策略。",
+      "补齐搜索可用性的查询投影和审计明细。旧版 E:/EcomGen/legacy/apps/api/src/routes/meta.ts:9 暴露 webResearchAvailable；E:/EcomGen/legacy/packages/core/src/repositories/jobRepository.ts:42 区分逻辑搜索 invocationCount、逐来源成功/失败次数，并保存 query/sourceId/sourceName/sourceKind/resultCount/errorMessage，按插入顺序返回。它们不能退化成一个研究开关、一次请求日志或只有总成功数。",
+      "删除策略需明确跨命名空间及历史留存。E:/EcomGen/legacy/packages/core/src/database.ts:682 的 print_packs 随 Pattern 级联删行，但文件在独立 print-packs/<packId>；同文件 :710 的流水线在删除 Pattern 后保留历史并把 patternId 置空。新版应在删除前登记所有包文件的清理任务，保留可查询的流水线历史，并阻止迟到任务重新发布。照搬 E:/EcomGen/legacy/apps/api/src/routes/patterns.ts:122 的仅 deletePattern 目录会留下规格包文件。",
+      "通用 jobs.retry 必须按领域分派或拒绝有关联聚合的任务，尤其流水线步骤和草稿任务。E:/EcomGen/legacy/apps/api/src/routes/jobs.ts:31 已对草稿做限制，但流水线步骤没有同等保护；普通重试换 jobId 后会丢失 Step 反查关系。新版需要以一个事务创建新 attempt/Job 并更新 Turn、Slot、Step、Export 等伴随记录，保留此前尝试；UNKNOWN 不能通过任何通用或局部入口被重发。",
+      "缩略图应独立于 Library 的可见集合。E:/EcomGen/legacy/packages/core/src/files.ts:139 按源图 hash 缓存 WebP，E:/EcomGen/legacy/apps/api/src/routes/files.ts:8 实现并发单飞，E:/EcomGen/legacy/packages/core/src/repositories/patternDraftRepository.ts:383 还允许从草稿媒体/候选找源图。ArtifactRef 需区分源图 hash 与缩略图实际字节 hash；readVerified 不能拿源图 hash 校验 WebP。否则未定稿草稿的小图会缺失，或校验必然失败。",
+      "临时编辑参考的“提升”也要保护已冻结的执行输入。E:/EcomGen/legacy/apps/api/src/routes/editSessions.ts:171 提升为项目素材后会删临时行和原文件，即使它已被 Turn 引用；不能照搬这一顺序。应先形成独立项目文件，并让既有 Turn 使用固定副本或受引用保护的原 artifact；过期、提升和删除统一遵循引用保留。",
+      "当前公开健康查询已经暴露真实数据目录。E:/EcomGen/desktop/packages/contracts/src/index.ts:33 的 HealthSchema 含 dataDir，E:/EcomGen/desktop/packages/backend/src/index.ts:197 返回 root。这与映射的 renderer 不接真实路径目标不一致；迁移时应将路径移入受信任宿主诊断能力，公共 health 仅返回业务可用状态。"
+    ],
+    "corrections": [
+      "不要将映射中的目标设计表述为旧版已经具备的机制。E:/EcomGen/legacy/packages/core/src/database.ts:347 和 E:/EcomGen/legacy/packages/core/src/repositories/jobRepository.ts:71 保存 input_json 与 provider/model 引用，并非所有任务都有完整不可变执行快照；E:/EcomGen/legacy/apps/api/src/routes/patternDrafts.ts:673 的旧批次快照保存参考路径但未逐图保存内容 hash。完整版本化快照、逐请求账本及跨聚合原子提交是新版必须补强的实现，不能通过复制旧仓库自动获得。",
+      "项目平台选择原本允许为空。E:/EcomGen/legacy/apps/api/src/routes/projects.ts:74 明确只限制最多一个平台，而 E:/EcomGen/desktop/packages/contracts/src/index.ts:55 要求至少一个，且 E:/EcomGen/desktop/packages/backend/src/business.ts:42 默认为 AMAZON。完整迁移应允许 [] 并保留未指定平台的意义，不能默认为用户选择 Amazon。旧规划路由 :284 只在 PIXEL_PROTECTED 模式要求 PRODUCT_TRUTH；新版 business.ts:70 对所有 PLAN/PI_AGENT 强制该要求。应按实际执行能力恢复 CREATIVE 的可用输入范围，并验证参考素材规划场景。",
+      "“manual bbox/prompt 元素可跳过识别”需要纠正。E:/EcomGen/legacy/apps/api/src/routes/outputs.ts:84 强制 manual 元素必须有 bbox；英文 promptEn 主要由后端从 auto 识别结果补齐。原路由不能证明支持仅提示词、无框的 manual 元素。应先保留原有画框路径；若增加纯提示词元素，必须单独定义来源类型、契约和执行语义。",
+      "套图分页元数据须写清，不能沿用资产库 total 的解释。E:/EcomGen/legacy/packages/core/src/suite-catalog.ts:194 中 total/l1Counts 仅随 origin 缩小，不受 q/l1/l2/ids 影响；originCounts 始终是全库计数；ids 非空时忽略普通过滤与分页，但元数据仍按上述规则计算。目录加载冲突顺序是内置→数据库→目录，显示顺序却是 user 在前、最近导入优先、builtin 保持原索引顺序，见同文件 :299。",
+      "SOURCE 流水线指纹不能直接复制。E:/EcomGen/legacy/apps/api/src/routes/patternPipelines.ts:49 未纳入 sourceJobId 或来源请求指纹；E:/EcomGen/legacy/apps/api/src/routes/patterns.ts:222 的起稿入口传入 patternId=null/patternHash=null。两个不同主题起稿使用相同成包答案且首条仍在途时，会复用第一条流水线，第二个 SOURCE 任务没有自己的步骤。新版应将来源执行身份纳入去重，且被复用的同一来源任务只能绑定符合 jobId 唯一约束的那条流水线。",
+      "retryStep 的活动检查应覆盖目标及全部下游。E:/EcomGen/legacy/apps/api/src/routes/patternPipelines.ts:185 仅检查目标，随后 E:/EcomGen/legacy/packages/core/src/pattern-pipeline.ts:93 会清空所有下游 jobId。目标已成功、下游仍在运行时重跑目标，会切断下游归属并可能重复付费。应在同一事务校验目标/下游无活动或 UNKNOWN 请求后再创建新尝试，旧尝试记录应保留。",
+      "不要将旧版临时文件删除顺序当成恢复安全的模板。E:/EcomGen/legacy/apps/api/src/routes/patternDrafts.ts:415 先删库后删目录，目录清理失败后再次请求无法通过 ensureDraft；同文件 :593 在一次 await 前检查候选，随后写文件还有 await，不能保证检查后候选未被删除。新版需要持久删除标记/清理记录，以及最终事务里的存在性与归属复核；只写“重复删除可重入”或“文件先落盘再写库”不足以解决这些窗口。",
+      "分割协议迁移不能只复制旧 Project mapper。E:/EcomGen/legacy/packages/core/src/repositories/projectRepository.ts:229 仅保留 grounded_sam/seedream_layerize，其他值回退 fal，会把 gitee_sam3 读错。新版应统一使用模型声明校验和穷尽的协议映射，覆盖 fal、grounded_sam、gitee_sam3、seedream_layerize；v2 Provider 的 OPENAI/GEMINI 也不能直接等同于它具备所有图片/分割能力。",
+      "RequestLedger 的 COMPLETED 必须定义为“远端响应及可恢复证据已持久化”，并与“领域产物已提交”分开。当前 E:/EcomGen/desktop/packages/backend/src/business.ts:213 在请求前置 IN_FLIGHT，直到 :314 本地处理全部完成才改 COMPLETED；因此 Provider 已成功但图片解码、校验或发布失败仍会进入 UNKNOWN。新版账本要保存可恢复响应/远端任务标识并支持本地继续处理，不能只增加一张含状态字符串的表后继续沿用原有窗口，也不能把已发出的请求重新当 NOT_SENT。",
+      "“保留原 UI”目前只是待办，不能凭路由映射判定完成。同理，读取仓库和 routes 不能证明 PIXEL_PROTECTED 的最终像素合成、编辑 executionMode/compositePolicy、自动分层背景算法、长图与印刷场景渲染已经完整迁入。实施清单需要增加原 Worker 与 React 页面/画布的定点对照步骤，先提取真实执行和交互验收条件，再接入桌面适配；本轮没有检查这些范围。"
+    ],
+    "implementationOrder": [
+      "1. 先冻结差异验收清单与入口契约。在 E:/EcomGen/desktop/packages/contracts/src/index.ts 明确项目可选平台、规划覆盖参数、全局 jobs.get/list、分镜追加语义、草稿 composeType/ordinal/验缝轴证据、套图计数及 ArtifactRef；补读相关原 Worker 和 React 页面，列出原始流程、默认值、上限和算法版本。此步只查源码，继续排除旧数据库、素材、凭据与依赖目录。",
+      "2. 优先建设持久化安全基础。在 E:/EcomGen/desktop/packages/backend/src/database.ts 实现受测的桌面 v2→v3 迁移，保留旧快照字节和 artifact 别名；同时增加统一仓库、逐请求账本、artifact 登记/引用保留、删除标记与清理队列。以临时真实 SQLite 验证升级回滚、外键、唯一约束、部分产物、UNKNOWN 和高版本拒绝，成功后才让队列认领任务。",
+      "3. 在 E:/EcomGen/desktop/packages/backend/src/index.ts 完成 await dispatch 后校验输出、领域化重试分派、全局任务事件和查询、逐请求恢复及关闭等待。先用假 Provider 验证请求前崩溃、响应后未提交、取消、Provider 删除和多槽部分成功，再允许迁入新的付费执行器；同步移除公共 health 的真实路径。",
+      "4. 迁入 Provider 多模型目录、协议能力、搜索源、用户模板与 SuiteCatalog，然后完成项目字段/归档、素材规则、库与复制、缩略图和安全删除。通过目录真实计数与排序、草稿缩略图、跨来源去重、复制后删源及跨命名空间清理验证，为其他工作流提供一致的基础依赖。",
+      "5. 接通完整规划、研究审计、帮写、配置历史与分镜追加/编辑/确认；随后实现多候选生成、不可变 Output、稳定 generationKey、批次分组、选图 ZIP/长图及历史导出。保留 E:/EcomGen/desktop/packages/backend/src/business.ts 的既有入口作为新领域服务适配，完成对应切换后删除重复 SQL/配置真相。使用两次规划、旧条目生成、只重试失败候选及重启场景验收。",
+      "6. 基于 Output/Artifact/账本迁入编辑会话与自动分层。先完成分支记忆、参考用途/顺序、蒙版、显式审批和像素合成，再完成视觉 LayerPlan、协议驱动分割、背景与 PSD/图层历史；专项验证参考提升/过期不破坏执行、保护区逐像素一致、响应后本地恢复以及历史文件不被覆盖。",
+      "7. 并行迁入全局模特库与套图反推完整流程：模特规格/参考脸/选角/定妆照选择，套图多源 hints/进度/最近任务/编辑预览/显式 commit。共享全局任务与 artifact 服务，在事务提交后更新缓存和事件，测试删除与在途任务竞争、同一 commit 幂等及已提交结果不被迟到执行重置。",
+      "8. 迁入正式花型库、提取/起稿/HSL/生成式衍生/验缝、印刷规格包和 Listing；再迁入完整草稿工坊，包括不复用的图N编号、笔迹回收、五种操作、逐槽补偿、候选删除与定稿。通过接缝逐轴证据、印刷尺寸/DPI/透明度、来源引用和删草稿保留正式花型验收。",
+      "9. 最后把上述稳定领域操作接入成包流水线，修正来源去重、目标及下游活动检查、通用 retry 绕过、UNKNOWN 阻断和删除后历史可见性。验证不同来源相同答案不串链、极快 SOURCE、三种接缝裁决、已完成再次成包、新尝试保留旧历史，以及任务完成/步骤结算/下一任务创建同事务。",
+      "10. 原 UI 的桌面适配随第4—9步逐域落地，最后做完整页面交叉回归：保留原暗色琥珀布局、抽屉、画布、比较、历史及成包裁决，用 typed DesktopClient/预览协议/保存对话框替换旧网络传输。按 E:/EcomGen/desktop/AGENTS.md 执行 pnpm build、pnpm test、pnpm test:e2e:mock 和实际 Electron 操作；安装包资源核对确认无需 legacy 路径、旧服务或旧环境配置，所有流程验收通过后再更新完整迁移声明。"
+    ]
+  }
+}

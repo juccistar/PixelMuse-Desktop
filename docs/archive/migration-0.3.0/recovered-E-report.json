@@ -1,0 +1,62 @@
+{
+  "provenance": {
+    "transcript": "C:/Users/Administrator/.claude/projects/e--EcomGen/d4f517ce-c435-405c-afb6-249f17fdb1ab/subagents/workflows/wf_2baf1911-a9d/agent-aac43fdab6af93025.jsonl",
+    "agentId": "aac43fdab6af93025",
+    "source": "Accepted StructuredOutput attachment; original workflow stopped after all implementation reports were delivered"
+  },
+  "report": {
+    "summary": "ROLE E 已完成原版 React UI 依赖闭包、九条 memory-router 路由及宿主接线，保留原布局、CSS Modules、主题、中文 locale、画布、编辑/分层/工坊交互。生产 renderer 直接绑定 111 个不同的具名操作，文件下载统一改为受管资源与原生保存。修复草稿并发保存、迟到旧版本覆盖、离开前 flush，以及 StrictMode 下编辑会话加载和版本历史恢复问题。桌面严格类型检查通过；25 个测试文件、143 项测试全部通过，无跳过；独立 Electron 使用生产 preload/renderer 和假 IPC 走通九条路由，核对草稿保存及页面内容，无页面异常。完整 Backend 接线与最终 EXE 验收仍需协调者完成，未宣称全业务已验收。",
+    "files": [
+      "E:/EcomGen/desktop/apps/desktop/src/main/index.ts",
+      "E:/EcomGen/desktop/apps/desktop/src/main/native-files.ts",
+      "E:/EcomGen/desktop/apps/desktop/src/main/native-files.test.ts",
+      "E:/EcomGen/desktop/apps/desktop/src/main/request-boundary.ts",
+      "E:/EcomGen/desktop/apps/desktop/src/main/request-boundary.test.ts",
+      "E:/EcomGen/desktop/apps/desktop/src/preload/index.ts",
+      "E:/EcomGen/desktop/apps/desktop/src/shared/native-contracts.ts",
+      "E:/EcomGen/desktop/apps/desktop/src/shared/image-types.ts",
+      "E:/EcomGen/desktop/apps/desktop/src/renderer/main.tsx",
+      "E:/EcomGen/desktop/apps/desktop/src/renderer/app/App.tsx",
+      "E:/EcomGen/desktop/apps/desktop/src/renderer/app/routes.tsx",
+      "E:/EcomGen/desktop/apps/desktop/src/renderer/api/client.ts",
+      "E:/EcomGen/desktop/apps/desktop/src/renderer/api/changes.tsx",
+      "E:/EcomGen/desktop/apps/desktop/src/renderer/features/workbench/EditImageWorkspace.tsx",
+      "E:/EcomGen/desktop/apps/desktop/src/renderer/features/workbench/LayersPanel.tsx",
+      "E:/EcomGen/desktop/apps/desktop/src/renderer/features/pattern-drafts/PatternDraftWorkspacePage.tsx",
+      "E:/EcomGen/desktop/apps/desktop/src/renderer/lib/resource.ts",
+      "E:/EcomGen/desktop/apps/desktop/src/renderer/lib/outputMetadata.ts",
+      "E:/EcomGen/desktop/apps/desktop/src/renderer/test/fake-desktop.ts",
+      "E:/EcomGen/desktop/apps/desktop/src/renderer/test/window-smoke.mjs",
+      "E:/EcomGen/desktop/apps/desktop/src/renderer/test/window-smoke-main.ts",
+      "E:/EcomGen/desktop/apps/desktop/src/renderer/test/final-results.json",
+      "E:/EcomGen/desktop/apps/desktop/src/renderer/test/window-result.json",
+      "E:/EcomGen/desktop/apps/desktop/src/renderer/MIGRATION.md",
+      "E:/EcomGen/desktop/apps/desktop/public/fonts/README.md"
+    ],
+    "apiArtifacts": [
+      "E:/EcomGen/desktop/apps/desktop/src/renderer/api/client.ts：invoke<K extends Operation>(operation: K, input: Input<K>): Promise<Output<K>>；fileInput(file: Blob, name?: string): Promise<ByteImport>；pngInput(file: Blob, name: string): Promise<NonNullable<Input<'createEditTurn'>['editMask']>>。图片按文件头识别 PNG/JPEG/WebP/AVIF/TIFF，蒙版单独限制 PNG。",
+      "E:/EcomGen/desktop/apps/desktop/src/shared/native-contracts.ts：NativeDesktopApi extends DesktopApi；额外提供 readClipboardText(): Promise<string>、writeClipboardText(text: string): Promise<void>、saveGeneratedFile(file: GeneratedFile): Promise<boolean>；saveArtifact(ref: ResourceRef, suggestedName?: string): Promise<boolean>。剪贴板限 64KiB；生成文件限 64MiB，校验 PNG/PSD/ZIP/JSON 内容及扩展名。",
+      "E:/EcomGen/desktop/apps/desktop/src/main/native-files.ts：readSelectedImage(path: string): Promise<ByteImport>、parseResourceRequest(value: string): ResourceRef、decodeGeneratedFile(value: unknown): { file: GeneratedFile; bytes: Buffer }。路径仅存在于 main；选择入口限制单文件 50MiB、总量 128MiB，拒绝链接并检查读取期间变化。",
+      "E:/EcomGen/desktop/apps/desktop/src/main/request-boundary.ts：rendererRequestAllowed(value: string, rendererDirectory: string, devOrigin?: string): boolean。生产仅允许 renderer 目录内文件及受管协议，开发网络仅允许准确的开发服务器 origin。",
+      "E:/EcomGen/desktop/apps/desktop/src/renderer/lib/resource.ts：restrictedResourceUrl(value: string): string、readResource(value: string): Promise<Response>、saveResource(value: string | ResourceRef, suggestedName?: string): Promise<boolean>、saveGeneratedBlob(blob: Blob, name: string): Promise<boolean>。唯一 canvas fetch 入口拒绝任意 HTTP/file/blob/data 地址。",
+      "E:/EcomGen/desktop/apps/desktop/src/renderer/MIGRATION.md 包含九路由、编辑/分层命令、宿主边界、依赖和协调接入要求。E:/EcomGen/desktop/apps/desktop/src/renderer/test/window-smoke.mjs 可自行编译并复现真实窗口检查；可用 /run-skill-generator 将此驱动固化为项目运行技能。"
+    ],
+    "dependencies": [
+      "使用协调者已安装的 React、React Router、TanStack Query、AntD、lucide-react、motion、react-photo-album、react-virtuoso、ag-psd、fflate、hero-patterns、TypeBox 和工作区 contracts/domain/ecom-skill。未安装新依赖，未引入 openapi-fetch。",
+      "测试使用已有 Vitest、jsdom、Testing Library、jest-dom 6.9.1、playwright-core；窗口驱动复用现有 Vite、React 插件、electron-vite 的 esbuild 和 Electron。",
+      "未修改 package manifest、锁文件、构建配置、根脚本、core/backend/contracts/providers；未调用真实 Provider，未读取旧凭据/数据库，未停止既有服务或 EcomGen 窗口。"
+    ],
+    "tests": [
+      "PASS：指定 Node 22.23.4 执行 E:/EcomGen/desktop/node_modules/typescript/bin/tsc -p E:/EcomGen/desktop/apps/desktop/tsconfig.json。",
+      "PASS：指定 Node 执行 E:/EcomGen/desktop/node_modules/vitest/vitest.mjs run --root E:/EcomGen/desktop apps/desktop/src --maxWorkers=2；25 文件、143 测试、0 失败、0 跳过。机器结果保留于 E:/EcomGen/desktop/apps/desktop/src/renderer/test/final-results.json。",
+      "原版回归覆盖项目画廊/归档/创建、Provider 多模型及剪贴板解析、模特身份筛选、规划门槛、绘制/选框/涂抹保护、图层显隐/编排、减弱动态及领域显示逻辑；网络 mock 已替换为直接假 IPC。新增覆盖联合分层导出、UNKNOWN 屏障、StrictMode 会话恢复、草稿并发/CAS/迟到查询/离开前保存、协议越界及原生文件边界。",
+      "PASS：指定 Node 执行 E:/EcomGen/desktop/apps/desktop/src/renderer/test/window-smoke.mjs。生产 renderer 全量编译，包括九个路由 chunk 和 PSD worker；独立 Electron 使用真实 sandbox preload、TypeBox 校验的假具名 IPC，完成九页导航、项目创建、花型平铺切换及键盘修改草稿后界面/后台双重核对，0 页面异常。已实际查看首页与草稿截图；机器结果为 E:/EcomGen/desktop/apps/desktop/src/renderer/test/window-result.json。",
+      "PASS：最终源码扫描未发现 legacy 运行导入、openapi-fetch、API_BASE_URL、EventSource、旧 schema.d.ts、FormData、api.GET/POST/PATCH/DELETE 或旧 ecomgen-asset 协议。临时迁移脚本、编译目录、截图及中间失败报告已清理。"
+    ],
+    "openIssues": [
+      "协调阶段必须将 C 的 registerDomainCommands 与 D 的 registerExecutors 接入 createBackend。E:/EcomGen/desktop/apps/desktop/src/main/backend-entry.ts 当前使用 @ecomgen/backend 的默认 integrations；该入口尚不能代表完整业务可执行，未注册命令会真实返回 COMMAND_UNAVAILABLE。应由 B 的统一入口默认整合，或公开工厂后在 utilityProcess 初始化处注入。",
+      "共享公开 DTO 仍删除整个 generationSnapshot，原版重新生成标记/批次重试计数因此缺少可靠的历史 revision。需 B 给公开 Output 增加脱敏 revision?: string，C 从持久快照投影该字段；不要回传整个执行快照。E:/EcomGen/desktop/apps/desktop/src/renderer/lib/outputMetadata.ts 及输出适配已准备消费该公开字段。",
+      "真实窗口验证使用假 IPC，尚不替代 C/D 接线后的全部执行器、资源发布、数据迁移和打包 EXE 验收；这些仍由后续协调阶段完成。"
+    ]
+  }
+}

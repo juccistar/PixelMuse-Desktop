@@ -1,0 +1,272 @@
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.headerActions {
+  display: flex;
+  gap: 8px;
+}
+
+.headerMeta {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.card {
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-m);
+  background: var(--bg-2);
+  padding: 14px 16px;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--text-1);
+}
+
+.cardActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.baseUrl {
+  margin: 8px 0 0;
+  color: var(--text-2);
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.metaText {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.enabledTag:global(.ant-tag) {
+  border-color: color-mix(in srgb, var(--success) 50%, transparent);
+  background: color-mix(in srgb, var(--success) 12%, var(--bg-1));
+  color: var(--success);
+  font-weight: 600;
+}
+
+.emptyBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  border: 1px dashed var(--line-2);
+  border-radius: var(--radius-l);
+  padding: 32px 28px;
+  background: var(--bg-1);
+}
+
+.emptyTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--text-1);
+}
+
+.emptyHint {
+  margin: 0 0 12px;
+  max-width: 44ch;
+  color: var(--text-2);
+  line-height: 1.7;
+}
+
+/* ---- 表单 ---- */
+
+.pasteTrigger {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.pasteTrigger:hover {
+  color: var(--text-1);
+}
+
+.modelsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 4px 0 8px;
+}
+
+.modelsHeaderText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.modelsLabel {
+  color: var(--text-1);
+  font-size: 13px;
+}
+
+.modelsHint {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.modelList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.modelRow {
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-m);
+  background: var(--bg-2);
+  padding: 12px;
+}
+
+.modelRowMain {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.modelRowMain :global(.ant-form-item) {
+  margin-bottom: 0;
+}
+
+.modelId {
+  flex: 1 1 180px;
+  min-width: 150px;
+}
+
+.switchItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.modelRowCaps {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line-1);
+}
+
+.capsLabel {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.testOk,
+.testFail {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 12px;
+}
+
+.testOk {
+  color: var(--success);
+}
+
+.testFail {
+  color: var(--danger);
+}
+
+/* ---- 模型选择弹窗 ---- */
+
+.pickerMeta {
+  margin: 0 0 10px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.pickerList {
+  display: flex;
+  flex-direction: column;
+  max-height: 320px;
+  overflow-y: auto;
+  margin-top: 12px;
+  padding: 4px 10px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-m);
+  background: var(--bg-1);
+}
+
+.pickerRow {
+  margin: 0;
+  padding: 7px 2px;
+  border-bottom: 1px dashed var(--line-1);
+}
+
+.pickerList .pickerRow:last-child {
+  border-bottom: none;
+}
+
+.pickerRow:global(.ant-checkbox-wrapper) {
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.pickerTag:global(.ant-tag) {
+  margin-inline-start: 8px;
+  margin-inline-end: 0;
+  font-size: 11px;
+}
+
+.pickerEmpty {
+  margin: 16px 0 4px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.formFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line-1);
+}

@@ -1,0 +1,2256 @@
+{
+  "version": 1,
+  "generatedAt": "2026-11-06T12:45:10.140Z",
+  "integration": "unrun",
+  "completion": false,
+  "command": "node desktop/scripts/e2e-full.mjs",
+  "checkCommand": "node desktop/scripts/e2e-full.mjs --check",
+  "artifacts": "E:\\EcomGen\\desktop\\.cache\\e2e-full\\2026-11-06T12-45-10-139Z",
+  "scope": "Actual Electron + named IPC + persisted SQLite + local protocol fixture; no HTTP business client",
+  "nativeDialogs": "Native saves are test-controlled in the isolated app; HTML uploads use real file inputs. OS dialog rendering is not automated.",
+  "sources": {
+    "catalog": {
+      "path": "E:\\EcomGen\\desktop\\packages\\contracts\\command-catalog.json",
+      "sha256": "5d0707ada018eb8e313585bad731308e3f3e46b1ce521280d41aefe633080f9f"
+    },
+    "modules": [
+      "E:\\EcomGen\\desktop\\scripts\\e2e-full-business.mjs",
+      "E:\\EcomGen\\desktop\\scripts\\e2e-full-edit-layers.mjs",
+      "E:\\EcomGen\\desktop\\scripts\\e2e-full-patterns.mjs",
+      "E:\\EcomGen\\desktop\\scripts\\e2e-full-additional.mjs",
+      "E:\\EcomGen\\desktop\\scripts\\e2e-full-recovery.mjs",
+      "E:\\EcomGen\\desktop\\scripts\\e2e-full-ui.mjs"
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "provider-multimodel",
+      "title": "Multiple models, saved/explicit discovery, manual probes and key preservation",
+      "needs": [],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "search-sources",
+      "title": "Local search source priority, encryption and saved-key edits",
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "project-facts-assets",
+      "title": "Full business facts, normalized languages, roles and byte imports",
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "project-lifecycle",
+      "title": "Archive, restore and delete isolate project files",
+      "needs": [
+        "project-facts-assets"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "library-copy-filters",
+      "title": "Library source/type/search/date filters, paging and independent copy",
+      "needs": [
+        "project-facts-assets"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "custom-templates",
+      "title": "Custom template CRUD, persistence and unknown-template rejection",
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "creative-ai-manual",
+      "title": "AI and MANUAL planning/generation work without product truth",
+      "jobTypes": [
+        "PLAN",
+        "GENERATE"
+      ],
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "protected-truth",
+      "title": "Protected planning rejects references as truth and accepts project product truth",
+      "jobTypes": [
+        "PLAN"
+      ],
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "storyboard-candidates",
+      "title": "Storyboard edits, CAS confirmation, multiple candidates/batches and dedupe",
+      "jobTypes": [
+        "PLAN",
+        "GENERATE"
+      ],
+      "needs": [
+        "project-facts-assets"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "planning-history",
+      "title": "Planning configuration history retains 20 source-deduplicated snapshots and applies one",
+      "jobTypes": [
+        "PLAN"
+      ],
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "copywriting-records",
+      "title": "Description and planning copy remain job-scoped until explicit adoption",
+      "jobTypes": [
+        "COPYWRITE"
+      ],
+      "needs": [
+        "project-facts-assets"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "suite-forge",
+      "title": "Global multi-image forge, editable commit, imported/builtin suite selection and planning",
+      "jobTypes": [
+        "SUITE_FORGE",
+        "PLAN"
+      ],
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "edit-memory-references",
+      "title": "Edit sessions, branch-scoped memory, references and promotion",
+      "needs": [
+        "storyboard-candidates"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "edit-confirmation",
+      "title": "Edit plan confirmation, actual output lineage, branch selection and memory restoration",
+      "jobTypes": [
+        "EDIT_PLAN",
+        "EDIT_GENERATE"
+      ],
+      "needs": [
+        "edit-memory-references"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "edit-need-input",
+      "title": "Ambiguous edit asks for input and cannot be approved or billed for generation",
+      "jobTypes": [
+        "EDIT_PLAN"
+      ],
+      "needs": [
+        "storyboard-candidates"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "edit-mask-protection",
+      "title": "No-confirm mask edit preserves outside/protected source pixels",
+      "jobTypes": [
+        "EDIT_PLAN",
+        "EDIT_GENERATE"
+      ],
+      "needs": [
+        "storyboard-candidates"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "edit-outpaint",
+      "title": "Outpaint expands canvas while locking the original rectangle",
+      "jobTypes": [
+        "EDIT_PLAN",
+        "EDIT_GENERATE"
+      ],
+      "needs": [
+        "storyboard-candidates"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "layer-auto-manual-sam",
+      "title": "Automatic element plan plus manual boxes produce source-preserving PNG/PSD",
+      "jobTypes": [
+        "LAYER_PLAN",
+        "LAYER_EXPORT"
+      ],
+      "needs": [
+        "storyboard-candidates"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "layer-grounded_sam",
+      "title": "grounded_sam prompt segmentation and real layer history",
+      "jobTypes": [
+        "LAYER_EXPORT"
+      ],
+      "needs": [
+        "storyboard-candidates"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "layer-gitee_sam3",
+      "title": "gitee_sam3 prompt segmentation and real layer history",
+      "jobTypes": [
+        "LAYER_EXPORT"
+      ],
+      "needs": [
+        "storyboard-candidates"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "layer-seedream_layerize",
+      "title": "seedream_layerize prompt segmentation and real layer history",
+      "jobTypes": [
+        "LAYER_EXPORT"
+      ],
+      "needs": [
+        "storyboard-candidates"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "export-zip-long-image",
+      "title": "Ordered ZIP selection, decoded long image/slices and manifest",
+      "jobTypes": [
+        "EXPORT"
+      ],
+      "needs": [
+        "storyboard-candidates"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "global-models",
+      "title": "Model designer record, reference face, cast, unique selected portrait and library",
+      "jobTypes": [
+        "MODEL_CAST"
+      ],
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "pattern-import",
+      "title": "Formal pattern upload, metadata, resource and library",
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "pattern-extract-segment",
+      "title": "Formal SEGMENT extraction commits pixels and deduplicates",
+      "jobTypes": [
+        "PATTERN_EXTRACT"
+      ],
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "pattern-extract-generate",
+      "title": "Formal GENERATE extraction commits pixels and deduplicates",
+      "jobTypes": [
+        "PATTERN_EXTRACT"
+      ],
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "pattern-forge-variant-recolor-tile",
+      "title": "Formal forge, AI variant, deterministic recolor lineage and tile check",
+      "jobTypes": [
+        "PATTERN_FORGE",
+        "PATTERN_VARIANT",
+        "PATTERN_DERIVE",
+        "PATTERN_TILE_CHECK"
+      ],
+      "needs": [
+        "pattern-import"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "pattern-print-listing",
+      "title": "Print file/mockup/tile/manifest bytes and Etsy Listing constraints",
+      "jobTypes": [
+        "PRINT_PACK",
+        "COPYWRITE:LISTING"
+      ],
+      "needs": [
+        "pattern-import"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "draft-media-cas",
+      "title": "Draft media CRUD, monotonic ordinals, conditions CAS and pattern reference snapshots",
+      "needs": [
+        "pattern-import"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "draft-generate-slots",
+      "title": "Draft generation/batch/slot/candidate records, stable idempotence and snapshots",
+      "jobTypes": [
+        "PATTERN_DRAFT_GENERATE"
+      ],
+      "needs": [
+        "draft-media-cas"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "draft-edit-cutout-process-seam",
+      "title": "Draft marked edit, cutout alpha, local recolor and paired-edge seam edit",
+      "jobTypes": [
+        "PATTERN_DRAFT_EDIT",
+        "PATTERN_DRAFT_CUTOUT",
+        "PATTERN_DRAFT_PROCESS"
+      ],
+      "needs": [
+        "draft-generate-slots"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "draft-compare-finalize",
+      "title": "Draft comparison/removal, explicit finalization and idempotent formal copy",
+      "needs": [
+        "draft-generate-slots"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "pipeline-full-chain",
+      "title": "Persisted source/tile/print/listing pipeline runs to actual artifacts",
+      "jobTypes": [
+        "PATTERN_TILE_CHECK",
+        "PRINT_PACK",
+        "COPYWRITE:LISTING"
+      ],
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "pipeline-seam-use_centered",
+      "title": "Seam gate persists before USE_CENTERED decision",
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "pipeline-seam-use_mirror",
+      "title": "Seam gate persists before USE_MIRROR decision",
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "pipeline-seam-allow_seam",
+      "title": "Seam gate persists before ALLOW_SEAM decision",
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "pipeline-source-cancel-retry",
+      "title": "Generated SOURCE step, explicit cancellation/retry and generation isolation",
+      "needs": [
+        "pipeline-full-chain"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "events-invalidation",
+      "title": "Desktop invalidation subscription triggers a resolved query after actual persisted project mutation",
+      "needs": [
+        "project-facts-assets"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "asset-readable-formats",
+      "title": "Generated PNG/JPEG/WebP/AVIF/TIFF imports retain readable pixels from the published desktop format set",
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "asset-domain-limits",
+      "title": "Six product and six reference image limits are independent, with real distinct content",
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "planning-domain-boundaries",
+      "title": "Planning count/template boundaries and removable draft storyboard items",
+      "jobTypes": [
+        "PLAN"
+      ],
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "research-real-tool-audit",
+      "title": "Real Pi visual-search tool observes source order/fallback, disable switch and persisted audit",
+      "jobTypes": [
+        "PLAN"
+      ],
+      "needs": [
+        "search-sources"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "catalog-crud-resource-handles",
+      "title": "Suite import/edit/delete and named downloads use bounded resource refs",
+      "needs": [
+        "storyboard-candidates"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "reference-promotion",
+      "title": "Temporary edit reference promotion creates an independently addressable project asset",
+      "needs": [
+        "edit-memory-references"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "deletion-and-reference-cleanup",
+      "title": "Disposable Provider/model/pattern deletion cleans references and preserves unrelated records",
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "ui-provider-setup",
+      "title": "Real Provider form, connection-text paste, discovery and key-preserving save",
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "ui-project-workbench",
+      "title": "Home creates project, workbench edits facts, plans, confirms and generates through UI",
+      "jobTypes": [
+        "PLAN",
+        "GENERATE"
+      ],
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "ui-upload-drop-paste",
+      "title": "File input selection, drop and paste reach actual project asset imports",
+      "needs": [
+        "ui-project-workbench"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "ui-copy-adoption-late-write",
+      "title": "AI copy actually adopts its target field and a later result cannot overwrite user changes",
+      "jobTypes": [
+        "COPYWRITE"
+      ],
+      "needs": [
+        "ui-upload-drop-paste"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "ui-edit-canvas",
+      "title": "Real edit canvas brush/protect strokes, memory and mask submission persist",
+      "jobTypes": [
+        "EDIT_PLAN",
+        "EDIT_GENERATE"
+      ],
+      "needs": [
+        "ui-project-workbench"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "ui-auto-layers-export-compose",
+      "title": "Automatic layers UI creates plan/PNG/PSD and layer composition canvas remains clean",
+      "jobTypes": [
+        "LAYER_PLAN",
+        "LAYER_EXPORT"
+      ],
+      "needs": [
+        "ui-project-workbench"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "ui-suite-forge",
+      "title": "Suite forge page submits automatic and explicit five-shot targets, edits and commits",
+      "jobTypes": [
+        "SUITE_FORGE"
+      ],
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "ui-model-designer",
+      "title": "Model designer preset produces a real model; reference face and cast/select interact visibly",
+      "jobTypes": [
+        "MODEL_CAST"
+      ],
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "ui-draft-and-pattern-routes",
+      "title": "Draft list/workspace create, autosave, generate/finalize then formal pattern detail",
+      "jobTypes": [
+        "PATTERN_DRAFT_GENERATE"
+      ],
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "ui-library-copy",
+      "title": "Library search/selection/target picker copies real independent asset into project",
+      "needs": [
+        "project-facts-assets"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "ui-routes-theme",
+      "title": "All nine original route families render their current heading before screenshots",
+      "needs": [
+        "ui-provider-setup",
+        "ui-project-workbench",
+        "ui-upload-drop-paste",
+        "ui-copy-adoption-late-write",
+        "ui-edit-canvas",
+        "ui-auto-layers-export-compose",
+        "ui-suite-forge",
+        "ui-model-designer",
+        "ui-draft-and-pattern-routes",
+        "ui-library-copy"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "ipc-path-secret-boundaries",
+      "title": "Restricted IPC, traversal/path/secret rejection and renderer isolation",
+      "needs": [
+        "project-facts-assets"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "draft-partial-retry",
+      "title": "Partial draft keeps successful slots/pixels and retries only failed slots",
+      "jobTypes": [
+        "PATTERN_DRAFT_GENERATE"
+      ],
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "receipt-replay-download-failure",
+      "title": "Complete paid receipt survives failed GET and restart; retry performs no second paid POST",
+      "jobTypes": [
+        "GENERATE"
+      ],
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "unknown-no-retry",
+      "title": "Dropped paid request becomes UNKNOWN and remains non-retryable across restart and duplicate submit",
+      "jobTypes": [
+        "PLAN"
+      ],
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "abort-inflight",
+      "title": "Cancel aborts hanging transport and unknown paid intent cannot create late output",
+      "jobTypes": [
+        "GENERATE"
+      ],
+      "needs": [
+        "provider-multimodel"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "backend-crash-status",
+      "title": "Test-owned Backend crash reports disconnection and recovers paid IN_FLIGHT as UNKNOWN",
+      "jobTypes": [
+        "PLAN"
+      ],
+      "needs": [
+        "project-facts-assets"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "persisted-records-restart",
+      "title": "Actual SQLite integrity/counts and stable record/file IDs after app restart",
+      "needs": [
+        "storyboard-candidates"
+      ],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    },
+    {
+      "id": "isolated-v2-upgrade",
+      "title": "Baseline schema-v2 upgrade preserves IDs, ciphertext bytes/history/resources and never executes old paid task",
+      "needs": [],
+      "status": "blocked",
+      "assertions": 0,
+      "evidence": [],
+      "reason": "Application integration has not run"
+    }
+  ],
+  "features": [
+    {
+      "id": "01-project-lifecycle",
+      "behavior": "首页画廊、默认模型配对创建、项目编辑、封面与输出预览、归档列表隔离、恢复、确认后永久删除；规划事实变化推进 planningRevision，改名和归档不推进。",
+      "scenarios": [
+        "project-lifecycle",
+        "ui-project-workbench"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "02-project-assets",
+      "behavior": "商品真值/参考图分组、导入/粘贴/拖入、用途标记、删除、同内容校验及输入容量；真值不能由参考图冒充。",
+      "scenarios": [
+        "project-facts-assets",
+        "asset-domain-limits",
+        "asset-readable-formats",
+        "ui-upload-drop-paste"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "03-global-asset-library",
+      "behavior": "统一上传、生成、模特、分层元素/背景、花型、印刷文件的资产库；hash 去重，类型/搜索/来源项目/时间/身份筛选及游标；独立复制到项目。",
+      "scenarios": [
+        "library-copy-filters",
+        "global-models",
+        "ui-library-copy"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "04-provider-settings",
+      "behavior": "连接串解析、多模型及能力声明、模型发现、连接测试、留空保留密钥、删除引用处理；推理/生图/分割选择准确。",
+      "scenarios": [
+        "provider-multimodel",
+        "ui-provider-setup",
+        "deletion-and-reference-cleanup"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "05-business-settings-and-localization",
+      "behavior": "描述、事实、禁用宣称、品牌、平台、市场、文案语言、提示词语言、模式、默认出图配置持久化；模型菜单按用途筛选。",
+      "scenarios": [
+        "project-facts-assets",
+        "ui-project-workbench",
+        "persisted-records-restart"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "06-product-copywriting",
+      "behavior": "有商品图时 AI 帮写商品描述等目标；视觉推理、角色区分、独立结果记录、用户采纳后更新项目。",
+      "scenarios": [
+        "copywriting-records",
+        "ui-copy-adoption-late-write"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "07-custom-templates",
+      "behavior": "用户模板创建、编辑、删除、持久化，手动规划选择、custom prompt传入及生图落地。",
+      "scenarios": [
+        "custom-templates"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "08-planning-history-and-validation",
+      "behavior": "AI/手动/套图规划、1至12张目标控制、模板白名单、事实/风险/风格锁、规划配置历史最近20份按来源job去重。",
+      "scenarios": [
+        "creative-ai-manual",
+        "protected-truth",
+        "planning-domain-boundaries",
+        "planning-history"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "09-web-research",
+      "behavior": "联网视觉研究开关、加密搜索源配置、启用/优先级、搜索调用及各来源失败/成功审计。",
+      "scenarios": [
+        "search-sources",
+        "research-real-tool-audit"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "10-storyboard-editor",
+      "behavior": "分镜展示名、提示词、候选数、模式、事实/风险、删除与版本确认；草稿自动保存；生成中/已生成内容冻结，下一次生成配置可调。",
+      "scenarios": [
+        "storyboard-candidates",
+        "ui-project-workbench"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "11-generation-batches-and-candidates",
+      "behavior": "选择多个分镜、每镜多候选、稳定generation key、generationBatchId、显式重新生成及按候选补偿；模型覆盖进入指纹。",
+      "scenarios": [
+        "storyboard-candidates",
+        "draft-partial-retry"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "12-results-and-export",
+      "behavior": "结果按分镜与首次生成批次分组、灯箱、单图保存、重新生成、可关闭失败提示；选择产物与排序后ZIP及合成长图/切片。",
+      "scenarios": [
+        "export-zip-long-image",
+        "ui-project-workbench"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "13-edit-sessions-and-masks",
+      "behavior": "持久编辑会话、计划/执行、多候选、版本关系、root/parent/turn谱系、记忆、标注、可编辑及保护mask、项目/临时参考用途和顺序。",
+      "scenarios": [
+        "edit-memory-references",
+        "edit-confirmation",
+        "edit-need-input",
+        "edit-mask-protection",
+        "edit-outpaint",
+        "reference-promotion",
+        "ui-edit-canvas"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "14-segmentation-protocols",
+      "behavior": "fal文本/框、Grounded SAM、Gitee SAM3文本与gzip RLE；能力与提示方式限制；源RGB乘mask alpha而不是生成替代色。",
+      "scenarios": [
+        "layer-auto-manual-sam",
+        "layer-grounded_sam",
+        "layer-gitee_sam3"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "15-automatic-layer-plans-and-exports",
+      "behavior": "视觉识别元素方案、自动/画框/直接提示词三入口、SAM逐元素或Seedream一次拆分、可选背景、输出hash绑定、方案/导出历史。",
+      "scenarios": [
+        "layer-auto-manual-sam",
+        "layer-seedream_layerize",
+        "ui-auto-layers-export-compose"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "16-layer-stack-and-artifact-integrity",
+      "behavior": "图层显隐、重排、命名、图层PNG、可选背景、预览、ZIP与真实PSD；alpha边界裁剪和坐标正确。",
+      "scenarios": [
+        "layer-auto-manual-sam",
+        "export-zip-long-image",
+        "ui-auto-layers-export-compose"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "17-suite-catalog-and-forge",
+      "behavior": "内置/用户/目录来源套图、分页搜索品类及来源计数、ID精确读取、导入编辑删除刷新；全局视觉反推草稿、近期任务、编辑确认入库、套图用于规划。",
+      "scenarios": [
+        "suite-forge",
+        "catalog-crud-resource-handles",
+        "ui-suite-forge"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "18-model-cast-library",
+      "behavior": "全局模特规格CRUD及互斥、参考脸上传清除、定妆多候选、唯一选定、身份维度搜索筛选、资产库复用及文件级联。",
+      "scenarios": [
+        "global-models",
+        "ui-model-designer",
+        "deletion-and-reference-cleanup"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "19-pattern-library-and-source-entry",
+      "behavior": "独立正式花型库、标签/改名/删除/缩略图、来源与父谱系；上传、SAM提取、生成式提取、主题AI起稿、多候选各自入库；可接后续成包。",
+      "scenarios": [
+        "pattern-import",
+        "pattern-extract-segment",
+        "pattern-extract-generate",
+        "pattern-forge-variant-recolor-tile"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "20-pattern-draft-aggregate-and-batches",
+      "behavior": "PLACEMENT/REPEAT草稿、条件与revision CAS、参考/草图/笔迹媒体、批次clientKey、候选槽位与attempt、只补失败槽位、候选定稿独立复制。",
+      "scenarios": [
+        "draft-media-cas",
+        "draft-generate-slots",
+        "draft-partial-retry",
+        "draft-compare-finalize",
+        "ui-draft-and-pattern-routes"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "21-pattern-drawing-and-editing",
+      "behavior": "草稿画布绘制/擦除/撤销、选框拖动缩放及边界、笔径/取色；参考@图N与备注；带笔迹及不带笔迹改稿、多候选和父谱系。",
+      "scenarios": [
+        "draft-edit-cutout-process-seam",
+        "ui-draft-and-pattern-routes"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "22-pattern-derive-and-tileability",
+      "behavior": "本地色相/饱和度/亮度衍生及新花型/候选谱系；验缝逐轴分数、算法版本、属性持久化，判定不修改图稿。",
+      "scenarios": [
+        "pattern-forge-variant-recolor-tile",
+        "draft-edit-cutout-process-seam"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "23-seam-edit-and-repeat-units",
+      "behavior": "跨边接缝改稿、环绕画布与只回写边缘带；直排/半落/三落/错砖/镜像几何及无缝单元。",
+      "scenarios": [
+        "draft-edit-cutout-process-seam",
+        "pattern-print-listing"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "24-print-packs",
+      "behavior": "版本化六套印刷规格、居中安全区、满印repeat排列、PRINT_FILE/MOCKUP/SEAMLESS_TILE/MANIFEST、预览与保存；规格/场景版本参与复用。",
+      "scenarios": [
+        "pattern-print-listing",
+        "pipeline-full-chain"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "25-listing-copy",
+      "behavior": "花型看图生成平台文案，平台、卖点、禁用词、标题/标签/描述/bullets硬约束及结果持久化。",
+      "scenarios": [
+        "pattern-print-listing"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "26-packaging-pipelines",
+      "behavior": "三问一次提交，上传或源任务接SOURCE→TILE_CHECK→PRINT_PACK→LISTING；顺序推进、收据、接缝裁决、取消、单步重跑和下游重置。",
+      "scenarios": [
+        "pipeline-full-chain",
+        "pipeline-seam-use_centered",
+        "pipeline-seam-use_mirror",
+        "pipeline-seam-allow_seam",
+        "pipeline-source-cancel-retry"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "27-durable-jobs-and-unknown-requests",
+      "behavior": "持久化队列、并发上限、冻结快照/指纹、取消、已知失败重试、重启恢复；外部IN_FLIGHT结果未知时不得自动重发，适用于所有新增业务和多请求聚合。",
+      "scenarios": [
+        "draft-partial-retry",
+        "receipt-replay-download-failure",
+        "unknown-no-retry",
+        "abort-inflight",
+        "backend-crash-status",
+        "persisted-records-restart"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "28-schema-v2-to-v3",
+      "behavior": "新版业务扩展通过桌面数据库v2→v3迁移，保留现有项目/素材/密文/配置/分镜/结果/任务与文件引用；支持全新初始化与重复开库。",
+      "scenarios": [
+        "isolated-v2-upgrade"
+      ],
+      "status": "blocked"
+    },
+    {
+      "id": "29-packaged-runtime-and-ui",
+      "behavior": "沿用暗色琥珀色主题、顶栏、项目画廊和设置抽屉；每项迁移在源码及独立EXE可操作，原生模块/只读目录/模板和业务资源独立随包。",
+      "scenarios": [
+        "ui-routes-theme",
+        "ipc-path-secret-boundaries",
+        "persisted-records-restart"
+      ],
+      "status": "blocked"
+    }
+  ],
+  "jobTypes": [
+    "PLAN",
+    "COPYWRITE",
+    "GENERATE",
+    "EXPORT",
+    "EDIT_PLAN",
+    "EDIT_GENERATE",
+    "LAYER_PLAN",
+    "LAYER_EXPORT",
+    "SUITE_FORGE",
+    "MODEL_CAST",
+    "PATTERN_EXTRACT",
+    "PATTERN_FORGE",
+    "PATTERN_DERIVE",
+    "PATTERN_VARIANT",
+    "PATTERN_TILE_CHECK",
+    "PRINT_PACK",
+    "PATTERN_DRAFT_GENERATE",
+    "PATTERN_DRAFT_EDIT",
+    "PATTERN_DRAFT_CUTOUT",
+    "PATTERN_DRAFT_PROCESS",
+    "COPYWRITE:LISTING"
+  ],
+  "operations": [
+    {
+      "original": "getHealth",
+      "operation": "getHealth",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listEcomDetailsImageTemplates",
+      "operation": "listEcomDetailsImageTemplates",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listUserTemplates",
+      "operation": "listUserTemplates",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createUserTemplate",
+      "operation": "createUserTemplate",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "updateUserTemplate",
+      "operation": "updateUserTemplate",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "deleteUserTemplate",
+      "operation": "deleteUserTemplate",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listSuites",
+      "operation": "listSuites",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createUserSuite",
+      "operation": "createUserSuite",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "refreshSuites",
+      "operation": "refreshSuites",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "getSuite",
+      "operation": "getSuite",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "updateUserSuite",
+      "operation": "updateUserSuite",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "deleteUserSuite",
+      "operation": "deleteUserSuite",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listSuiteCategories",
+      "operation": "listSuiteCategories",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listSuiteForgeJobResults",
+      "operation": "listSuiteForgeJobResults",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createSuiteForgeJob",
+      "operation": "createSuiteForgeJob",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "getSuiteForgeResult",
+      "operation": "getSuiteForgeResult",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "commitSuiteForgeResult",
+      "operation": "commitSuiteForgeResult",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listProviders",
+      "operation": "listProviders",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createProvider",
+      "operation": "createProvider",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "discoverProviderModels",
+      "operation": "discoverProviderModels",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "updateProvider",
+      "operation": "updateProvider",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "deleteProvider",
+      "operation": "deleteProvider",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "testProviderConnection",
+      "operation": "testProviderConnection",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listSearchSources",
+      "operation": "listSearchSources",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createSearchSource",
+      "operation": "createSearchSource",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "updateSearchSource",
+      "operation": "updateSearchSource",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "deleteSearchSource",
+      "operation": "deleteSearchSource",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listProjects",
+      "operation": "listProjects",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createProject",
+      "operation": "createProject",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "getProject",
+      "operation": "getProject",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "updateProject",
+      "operation": "updateProject",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "deleteProject",
+      "operation": "deleteProject",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listAssets",
+      "operation": "listAssets",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "uploadAsset",
+      "operation": "uploadAsset",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "updateAsset",
+      "operation": "updateAsset",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "deleteAsset",
+      "operation": "deleteAsset",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listLibraryAssets",
+      "operation": "listLibraryAssets",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "copyLibraryAssetToProject",
+      "operation": "copyLibraryAssetToProject",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createPlanningJob",
+      "operation": "createPlanningJob",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listPlanningConfigSnapshots",
+      "operation": "listPlanningConfigSnapshots",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "applyPlanningConfigSnapshot",
+      "operation": "applyPlanningConfigSnapshot",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createCopywritingJob",
+      "operation": "createCopywritingJob",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "getCopywritingResult",
+      "operation": "getCopywritingResult",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "getStoryboard",
+      "operation": "getStoryboard",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "confirmStoryboard",
+      "operation": "confirmStoryboard",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "updateStoryboardItem",
+      "operation": "updateStoryboardItem",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "deleteStoryboardItem",
+      "operation": "deleteStoryboardItem",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createGenerationJobs",
+      "operation": "createGenerationJobs",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createEditSession",
+      "operation": "createEditSession",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "getEditSession",
+      "operation": "getEditSession",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "updateEditSessionMemory",
+      "operation": "updateEditSessionMemory",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listEditReferenceAssets",
+      "operation": "listEditReferenceAssets",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "uploadEditReferenceAsset",
+      "operation": "uploadEditReferenceAsset",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "deleteEditReferenceAsset",
+      "operation": "deleteEditReferenceAsset",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "promoteEditReferenceAsset",
+      "operation": "promoteEditReferenceAsset",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createEditTurn",
+      "operation": "createEditTurn",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "selectEditSessionOutput",
+      "operation": "selectEditSessionOutput",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "getEditTurn",
+      "operation": "getEditTurn",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "approveEditTurn",
+      "operation": "approveEditTurn",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "getJob",
+      "operation": "getJob",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "cancelJob",
+      "operation": "cancelJob",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "retryJob",
+      "operation": "retryJob",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "getLayerPlan",
+      "operation": "getLayerPlan",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createLayerPlan",
+      "operation": "createLayerPlan",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "getLayerExport",
+      "operation": "getLayerExport",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createLayerExport",
+      "operation": "createLayerExport",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listLayerExports",
+      "operation": "listLayerExports",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createExportJob",
+      "operation": "createExportJob",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "getExport",
+      "operation": "getExport",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "downloadThumbnail",
+      "operation": "downloadThumbnail",
+      "disposition": "bounded resource handle; host resolves and native save dialog",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "downloadAsset",
+      "operation": "downloadAsset",
+      "disposition": "bounded resource handle; host resolves and native save dialog",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "downloadOutput",
+      "operation": "downloadOutput",
+      "disposition": "bounded resource handle; host resolves and native save dialog",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "downloadExport",
+      "operation": "downloadExport",
+      "disposition": "bounded resource handle; host resolves and native save dialog",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "downloadLayerExport",
+      "operation": "downloadLayerExport",
+      "disposition": "bounded resource handle; host resolves and native save dialog",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "downloadLayerExportLayer",
+      "operation": "downloadLayerExportLayer",
+      "disposition": "bounded resource handle; host resolves and native save dialog",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "subscribeEvents",
+      "operation": "subscribeEvents",
+      "disposition": "DesktopApi.onChanged invalidation subscription",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listModels",
+      "operation": "listModels",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createModel",
+      "operation": "createModel",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "getModel",
+      "operation": "getModel",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "updateModel",
+      "operation": "updateModel",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "deleteModel",
+      "operation": "deleteModel",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "uploadModelReferenceFace",
+      "operation": "uploadModelReferenceFace",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "deleteModelReferenceFace",
+      "operation": "deleteModelReferenceFace",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createModelCastJob",
+      "operation": "createModelCastJob",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listModelPortraits",
+      "operation": "listModelPortraits",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "deleteModelPortrait",
+      "operation": "deleteModelPortrait",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "selectModelPortrait",
+      "operation": "selectModelPortrait",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listPatterns",
+      "operation": "listPatterns",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "noopPatternsPost",
+      "operation": "noopPatternsPost",
+      "disposition": "removed legacy no-op; uploadPattern is actual import operation",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "getPattern",
+      "operation": "getPattern",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "updatePattern",
+      "operation": "updatePattern",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "deletePattern",
+      "operation": "deletePattern",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createPatternExtractJob",
+      "operation": "createPatternExtractJob",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createPatternForgeJob",
+      "operation": "createPatternForgeJob",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createPrintPackJob",
+      "operation": "createPrintPackJob",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createPatternDeriveJob",
+      "operation": "createPatternDeriveJob",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createPatternVariantJob",
+      "operation": "createPatternVariantJob",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createPatternTileCheckJob",
+      "operation": "createPatternTileCheckJob",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listPatternPrintPacks",
+      "operation": "listPatternPrintPacks",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "getPrintPack",
+      "operation": "getPrintPack",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createPatternListingJob",
+      "operation": "createPatternListingJob",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "getPatternListingResult",
+      "operation": "getPatternListingResult",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listPatternPipelines",
+      "operation": "listPatternPipelines",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createPatternPipeline",
+      "operation": "createPatternPipeline",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "getPatternPipeline",
+      "operation": "getPatternPipeline",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "continuePatternPipeline",
+      "operation": "continuePatternPipeline",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "retryPatternPipelineStep",
+      "operation": "retryPatternPipelineStep",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "cancelPatternPipeline",
+      "operation": "cancelPatternPipeline",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listPodPrintSpecs",
+      "operation": "listPodPrintSpecs",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "getPatternFile",
+      "operation": "getPatternFile",
+      "disposition": "bounded resource handle; host resolves and native save dialog",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "getPrintPackFile",
+      "operation": "getPrintPackFile",
+      "disposition": "bounded resource handle; host resolves and native save dialog",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "uploadPattern",
+      "operation": "uploadPattern",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listPatternDrafts",
+      "operation": "listPatternDrafts",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createPatternDraft",
+      "operation": "createPatternDraft",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "getPatternDraft",
+      "operation": "getPatternDraft",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "updatePatternDraft",
+      "operation": "updatePatternDraft",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "deletePatternDraft",
+      "operation": "deletePatternDraft",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listDraftMedia",
+      "operation": "listDraftMedia",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createDraftMedia",
+      "operation": "createDraftMedia",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "updateDraftMedia",
+      "operation": "updateDraftMedia",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "deleteDraftMedia",
+      "operation": "deleteDraftMedia",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "deleteDraftCandidate",
+      "operation": "deleteDraftCandidate",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listDraftBatches",
+      "operation": "listDraftBatches",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createDraftBatch",
+      "operation": "createDraftBatch",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "retryFailedDraftBatch",
+      "operation": "retryFailedDraftBatch",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "listDraftCandidates",
+      "operation": "listDraftCandidates",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "createDraftCandidateEdit",
+      "operation": "createDraftCandidateEdit",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "checkDraftCandidateTileability",
+      "operation": "checkDraftCandidateTileability",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "finalizeDraftCandidate",
+      "operation": "finalizeDraftCandidate",
+      "disposition": "named IPC command",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "downloadDraftCandidateFile",
+      "operation": "downloadDraftCandidateFile",
+      "disposition": "bounded resource handle; host resolves and native save dialog",
+      "status": "blocked",
+      "evidence": []
+    },
+    {
+      "original": "downloadDraftMediaFile",
+      "operation": "downloadDraftMediaFile",
+      "disposition": "bounded resource handle; host resolves and native save dialog",
+      "status": "blocked",
+      "evidence": []
+    }
+  ],
+  "knownContractBlockers": [],
+  "checks": {
+    "syntax": [
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-additional.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-business.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-edit-layers.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-harness.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-lifecycle-cdx-20261106-cleanup-probe.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-lifecycle-cdx-20261106-diagnostic-utility.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-lifecycle-cdx-20261106-diagnostics-selftest.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-lifecycle-cdx-20261106-reproducer.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-lifecycle-cdx-20261106-seed-cleanup.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-lifecycle-privacy-cdx-20261106-selftest.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-lifecycle-sol-independent-20261106-7f21-audit.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-lifecycle-sol-independent-20261106-7f21-privacy.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-lifecycle-sol-independent-20261106-7f21-shutdown-utility.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-lifecycle-sol-independent-20261106-7f21.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-model-extraction-fixture-20261106-selftest.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-model-extraction-source-20261106.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-network.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-patterns.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-persistence.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-probe-accounting-selftest.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-recovery-acceptance-20261106-cdx.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-recovery.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-registry.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-rejection-planning-cdb588-selftest.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-selftest.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-startup-guard-bootstrap.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-startup-guard-checks.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-startup-guard-close-fixture.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-startup-guard-close-selftest.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-startup-guard-launch.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-startup-guard-selftest.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-startup-guard-utility.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-support.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-ui.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full-v2-seed-selftest.mjs",
+        "status": "passed"
+      },
+      {
+        "file": "E:\\EcomGen\\desktop\\scripts\\e2e-full.mjs",
+        "status": "passed"
+      }
+    ],
+    "helperSelftests": {
+      "status": "passed",
+      "evidence": "E:\\EcomGen\\desktop\\.cache\\e2e-full\\2026-11-06T12-45-10-139Z\\driver-selftest.tap"
+    },
+    "registryDependencies": "passed",
+    "originalOperationMappings": 131,
+    "jobTypes": 20,
+    "baselineFeatureAssignments": 29,
+    "missingAuthoredOperations": [],
+    "note": "Static assignment and parse checks are not application behavior evidence. Every integration scenario remains blocked."
+  }
+}

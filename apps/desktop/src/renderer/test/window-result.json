@@ -1,0 +1,15 @@
+{
+  "routes": 9,
+  "passed": [
+    "home",
+    "workbench",
+    "library",
+    "suite-forge",
+    "models",
+    "patterns",
+    "pattern-workspace",
+    "drafts",
+    "draft-workspace"
+  ],
+  "errors": []
+}

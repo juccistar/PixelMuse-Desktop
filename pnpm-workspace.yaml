@@ -1,0 +1,18 @@
+packages:
+  - apps/*
+  - packages/*
+
+allowBuilds:
+  electron: true
+  esbuild: true
+  sharp: true
+  # 13.x 自带 N-API 预编译文件，避免 pnpm 根据 binding.gyp 触发多余的本机编译。
+  better-sqlite3: false
+  # NSIS 打包不使用 Squirrel.Windows 安装器。
+  electron-winstaller: false
+  # SDK preinstall 仅输出 no-op；protobuf postinstall 仅提示依赖版本范围。
+  '@google/genai': false
+  protobufjs: false
+
+minimumReleaseAgeExclude:
+  - electron@45.2.3

@@ -1,0 +1,99 @@
+import { Type } from "@sinclair/typebox";
+import type { Static } from "@sinclair/typebox";
+
+/**
+ * 由字面量元组派生字符串枚举 schema，枚举值只在元组里维护一份。
+ * 生成的 anyOf-of-consts 与 Type.Enum 等价，经 generate-openapi 的 stableSchema
+ * 折叠后同样输出 `type: string, enum: [...]`，因此不改变已发布的契约形态。
+ */
+export function stringEnumSchema<T extends string>(values: readonly T[], id: string) {
+  return Type.Union(values.map((value) => Type.Literal(value)), { $id: id });
+}
+
+export const PLATFORM_TARGETS = ["TAOBAO", "JD", "PDD", "DOUYIN", "AMAZON", "SHOPIFY"] as const;
+export const PlatformTarget = Type.Enum({ TAOBAO: "TAOBAO", JD: "JD", PDD: "PDD", DOUYIN: "DOUYIN", AMAZON: "AMAZON", SHOPIFY: "SHOPIFY" }, { $id: "#/components/schemas/PlatformTarget" });
+export const TargetMarket = Type.Enum({ CHINA_MAINLAND: "CHINA_MAINLAND", HONG_KONG: "HONG_KONG", MACAU: "MACAU", TAIWAN: "TAIWAN", UNITED_STATES: "UNITED_STATES", UNITED_KINGDOM: "UNITED_KINGDOM", GERMANY: "GERMANY", FRANCE: "FRANCE", ITALY: "ITALY", SPAIN: "SPAIN", JAPAN: "JAPAN", SOUTH_KOREA: "SOUTH_KOREA" }, { $id: "#/components/schemas/TargetMarket" });
+export const StoryboardMode = Type.Enum({ CREATIVE: "CREATIVE", PIXEL_PROTECTED: "PIXEL_PROTECTED" }, { $id: "#/components/schemas/StoryboardMode" });
+/** 分镜最终生图提示词（promptInstruction）的书写语种；与文案语种（copyLanguage）相互独立。 */
+export const PromptLanguage = Type.Enum({ CHINESE: "CHINESE", ENGLISH: "ENGLISH" }, { $id: "#/components/schemas/PromptLanguage" });
+/** 分镜的视觉任务语义；同一角色在套图中重复时必须使用不同模板，防止信息重复。 */
+export const StoryboardShotRole = Type.Enum({ HERO: "HERO", PAIN_POINT: "PAIN_POINT", COMPARISON: "COMPARISON", SCENE: "SCENE", DETAIL: "DETAIL", TRUST: "TRUST", VARIANT: "VARIANT", CTA: "CTA" }, { $id: "#/components/schemas/StoryboardShotRole" });
+/** 上传素材的用途取值元组；API 查询校验与契约 schema 共用，避免路由再抄一份允许列表。 */
+export const ASSET_ROLES = ["PRODUCT_TRUTH", "PACKAGING", "STYLE_REFERENCE", "LAYOUT_REFERENCE"] as const;
+export const AssetRole = stringEnumSchema(ASSET_ROLES, "#/components/schemas/AssetRole");
+/** 用户可见入口：产品图。内部仍写入 PRODUCT_TRUTH。 */
+export const USER_ASSET_KIND_PRODUCT = "PRODUCT" as const;
+/** 用户可见入口：参考图。内部默认写入 STYLE_REFERENCE。 */
+export const USER_ASSET_KIND_REFERENCE = "REFERENCE" as const;
+export const UserAssetKind = Type.Enum({ PRODUCT: "PRODUCT", REFERENCE: "REFERENCE" }, { $id: "#/components/schemas/UserAssetKind" });
+/** 资产库条目的物理来源：项目上传、生成结果或模特定妆照。 */
+export const LibraryItemSource = Type.Enum({ UPLOADED: "UPLOADED", GENERATED: "GENERATED", MODEL: "MODEL" }, { $id: "#/components/schemas/LibraryItemSource" });
+/** 资产库筛选类别：上传素材按用途分为商品/参考，生成结果、分层切图、花型与规格包各列一类。 */
+export const LibraryItemKind = Type.Enum({ PRODUCT: "PRODUCT", REFERENCE: "REFERENCE", GENERATED: "GENERATED", LAYER: "LAYER", MODEL: "MODEL", PATTERN: "PATTERN", PRINT_PACK: "PRINT_PACK" }, { $id: "#/components/schemas/LibraryItemKind" });
+export const ImageResolution = Type.Enum({ K1: "1K", K2: "2K", K4: "4K" }, { $id: "#/components/schemas/ImageResolution" });
+/** ImageResolution 的取值元组；与枚举同源维护，供运行时校验与遍历复用。 */
+export const IMAGE_RESOLUTIONS = ["1K", "2K", "4K"] as const;
+/**
+ * 生图质量档位，语义对齐 gpt-image 的 quality 参数（成本与细节随档位升降）。
+ * 只有声明支持的模型才会真正收到该参数（见 image-model-params 的判定）；
+ * 其余模型收到也没有意义，请求保持原样。
+ */
+export const IMAGE_QUALITIES = ["auto", "low", "medium", "high"] as const;
+export const ImageQuality = stringEnumSchema(IMAGE_QUALITIES, "#/components/schemas/ImageQuality");
+/** 生成产物的图片容器格式。透明底只能配 png/webp——jpeg 装不下 alpha，由契约校验拦截。 */
+export const IMAGE_OUTPUT_FORMATS = ["png", "jpeg", "webp"] as const;
+export const ImageOutputFormat = stringEnumSchema(IMAGE_OUTPUT_FORMATS, "#/components/schemas/ImageOutputFormat");
+export const ImageAspectRatio = Type.Enum({ AUTO: "AUTO", SQUARE: "1:1", PORTRAIT_2_3: "2:3", LANDSCAPE_3_2: "3:2", PORTRAIT: "3:4", LANDSCAPE: "4:3", PORTRAIT_4_5: "4:5", LANDSCAPE_5_4: "5:4", PORTRAIT_9_16: "9:16", WIDE: "16:9", ULTRA_WIDE: "21:9" }, { $id: "#/components/schemas/ImageAspectRatio" });
+export const PlanningMode = Type.Enum({ AI: "AI", MANUAL: "MANUAL" }, { $id: "#/components/schemas/PlanningMode" });
+/** 套图来源：随仓库内置或由用户导入/目录投放。 */
+export const EcomSuiteOrigin = Type.Enum({ BUILTIN: "builtin", USER: "user" }, { $id: "#/components/schemas/EcomSuiteOrigin" });
+/** LISTING：面向跨境电商平台的 listing 文案包（标题/tags/描述/要点），由花型工坊发起，不绑定项目。 */
+export const CopywritingTarget = Type.Enum({ PRODUCT_DESCRIPTION: "PRODUCT_DESCRIPTION", PLANNING_INSTRUCTION: "PLANNING_INSTRUCTION", LISTING: "LISTING" }, { $id: "#/components/schemas/CopywritingTarget" });
+export const JobType = Type.Enum({ PLAN: "PLAN", COPYWRITE: "COPYWRITE", GENERATE: "GENERATE", EXPORT: "EXPORT", EDIT_PLAN: "EDIT_PLAN", EDIT_GENERATE: "EDIT_GENERATE", LAYER_PLAN: "LAYER_PLAN", LAYER_EXPORT: "LAYER_EXPORT", SUITE_FORGE: "SUITE_FORGE", MODEL_CAST: "MODEL_CAST", PATTERN_EXTRACT: "PATTERN_EXTRACT", PATTERN_FORGE: "PATTERN_FORGE", PATTERN_DERIVE: "PATTERN_DERIVE", PATTERN_VARIANT: "PATTERN_VARIANT", PATTERN_TILE_CHECK: "PATTERN_TILE_CHECK", PRINT_PACK: "PRINT_PACK", PATTERN_DRAFT_GENERATE: "PATTERN_DRAFT_GENERATE", PATTERN_DRAFT_EDIT: "PATTERN_DRAFT_EDIT", PATTERN_DRAFT_CUTOUT: "PATTERN_DRAFT_CUTOUT", PATTERN_DRAFT_PROCESS: "PATTERN_DRAFT_PROCESS" }, { $id: "#/components/schemas/JobType" });
+export const JobStatus = Type.Enum({ QUEUED: "QUEUED", RUNNING: "RUNNING", SUCCEEDED: "SUCCEEDED", FAILED: "FAILED", CANCELLED: "CANCELLED", UNKNOWN: "UNKNOWN" }, { $id: "#/components/schemas/JobStatus" });
+export const ReasoningProtocolProfile = Type.Enum({ OPENAI: "openai", DASHSCOPE_QWEN: "dashscope_qwen", OPENAI_RESPONSES: "openai_responses" }, { $id: "#/components/schemas/ReasoningProtocolProfile" });
+export const SearchSourceKind = Type.Enum({ BRAVE: "brave", TAVILY: "tavily", SEARXNG: "searxng" }, { $id: "#/components/schemas/SearchSourceKind" });
+/** 编辑操作的合法取值；能力元信息见 edit-operations.ts 的注册表。 */
+export const EDIT_OPERATIONS = ["PRECISE_INPAINT", "PRODUCT_REPLACE", "SCENE_ADJUST", "OUTPAINT", "NATURAL_FUSION"] as const;
+export const EditOperation = stringEnumSchema(EDIT_OPERATIONS, "#/components/schemas/EditOperation");
+/** 编辑执行方式的合法取值；决定合成策略与是否需要人工确认。 */
+export const EDIT_EXECUTION_MODES = ["MODEL_DIRECTED", "MASKED", "OUTPAINT", "NEED_INPUT"] as const;
+export const EditExecutionMode = stringEnumSchema(EDIT_EXECUTION_MODES, "#/components/schemas/EditExecutionMode");
+/** 生成结果的合成策略，由执行方式派生（见 edit-operations.ts）。 */
+export const COMPOSITE_POLICIES = ["MASK_LOCKED", "NATURAL_BLEND", "OUTPAINT", "PROVIDER_RESULT"] as const;
+export const CompositePolicy = stringEnumSchema(COMPOSITE_POLICIES, "#/components/schemas/CompositePolicy");
+export const ReferenceSource = Type.Enum({ PROJECT: "PROJECT", TEMPORARY: "TEMPORARY" }, { $id: "#/components/schemas/ReferenceSource" });
+export const ReferencePurpose = Type.Enum({ PRODUCT_APPEARANCE: "PRODUCT_APPEARANCE", PACKAGING: "PACKAGING", LABEL: "LABEL", STYLE: "STYLE", LAYOUT: "LAYOUT" }, { $id: "#/components/schemas/ReferencePurpose" });
+export const EditTurnStatus = Type.Enum({ DRAFT: "DRAFT", PLANNING: "PLANNING", PLAN_READY: "PLAN_READY", NEED_INPUT: "NEED_INPUT", AWAITING_CONFIRMATION: "AWAITING_CONFIRMATION", GENERATING: "GENERATING", SUCCEEDED: "SUCCEEDED", FAILED: "FAILED", CANCELLED: "CANCELLED", UNKNOWN: "UNKNOWN" }, { $id: "#/components/schemas/EditTurnStatus" });
+export const EditSessionStatus = Type.Enum({ ACTIVE: "ACTIVE", ARCHIVED: "ARCHIVED" }, { $id: "#/components/schemas/EditSessionStatus" });
+/** QUEUE_UNAVAILABLE：任务已持久化但入队失败（如 Redis 不可用），任务落为 FAILED 且可重试。 */
+export const ErrorCode = Type.Enum({ VALIDATION_ERROR: "VALIDATION_ERROR", NOT_FOUND: "NOT_FOUND", CONFLICT: "CONFLICT", CAPABILITY_UNSUPPORTED: "CAPABILITY_UNSUPPORTED", PROVIDER_NOT_CONFIGURED: "PROVIDER_NOT_CONFIGURED", RATE_LIMITED: "RATE_LIMITED", INTERNAL_ERROR: "INTERNAL_ERROR", PROVIDER_ERROR: "PROVIDER_ERROR", QUEUE_UNAVAILABLE: "QUEUE_UNAVAILABLE" }, { $id: "#/components/schemas/ErrorCode" });
+
+export type PlatformTarget = Static<typeof PlatformTarget>;
+export type TargetMarket = Static<typeof TargetMarket>;
+export type StoryboardMode = Static<typeof StoryboardMode>;
+export type PromptLanguage = Static<typeof PromptLanguage>;
+export type StoryboardShotRole = Static<typeof StoryboardShotRole>;
+export type AssetRole = Static<typeof AssetRole>;
+export type UserAssetKind = Static<typeof UserAssetKind>;
+export type LibraryItemSource = Static<typeof LibraryItemSource>;
+export type LibraryItemKind = Static<typeof LibraryItemKind>;
+export type ImageResolution = Static<typeof ImageResolution>;
+export type ImageAspectRatio = Static<typeof ImageAspectRatio>;
+export type ImageQuality = Static<typeof ImageQuality>;
+export type ImageOutputFormat = Static<typeof ImageOutputFormat>;
+export type PlanningMode = Static<typeof PlanningMode>;
+export type EcomSuiteOrigin = Static<typeof EcomSuiteOrigin>;
+export type CopywritingTarget = Static<typeof CopywritingTarget>;
+export type JobType = Static<typeof JobType>;
+export type JobStatus = Static<typeof JobStatus>;
+export type ReasoningProtocolProfile = Static<typeof ReasoningProtocolProfile>;
+export type SearchSourceKind = Static<typeof SearchSourceKind>;
+export type EditOperation = Static<typeof EditOperation>;
+export type EditExecutionMode = Static<typeof EditExecutionMode>;
+export type CompositePolicy = Static<typeof CompositePolicy>;
+export type ReferenceSource = Static<typeof ReferenceSource>;
+export type ReferencePurpose = Static<typeof ReferencePurpose>;
+export type EditTurnStatus = Static<typeof EditTurnStatus>;
+export type EditSessionStatus = Static<typeof EditSessionStatus>;
+export type ErrorCode = Static<typeof ErrorCode>;

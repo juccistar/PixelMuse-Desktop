@@ -1,0 +1,1249 @@
+import { useBusinessActive } from '../../components/businessActivity';
+import { JobRecovery } from '../../components/JobRecovery';
+import { App, Button, Input, InputNumber, Modal, Popover, Select, Tooltip } from "antd";
+import { ArrowUpRight, Brush, Check, ChevronDown, Eraser, Hand, Layers3, Redo2, RotateCcw, Scan, Send, Settings2, Shield, SquareDashedMousePointer, Type, Undo2, Upload, X, ZoomIn, ZoomOut } from "lucide-react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import type { Asset, Output, ProjectDetail } from "../../api/adapters/projectDetail";
+import { useProviders } from "../../api/hooks/useProviders";
+import { useUpdateProject } from "../../api/hooks/useProjects";
+import { invoke, fileInput, pngInput } from "../../api/client";
+import { assetPreviewUrl } from "../../lib/assetUrl";
+import { restrictedResourceUrl } from "../../lib/resource";
+import type { Output as OperationOutput } from "@ecomgen/contracts";
+import { errorText } from "../../lib/errorText";
+import { editErrorLabel, editExecutionModeLabel, editOperationImpactHint, editOperationLabel } from "../../lib/userText";
+import { ManageModelsButton } from '../settings/settingsNavigation';
+import { layerElementLimit, modelOptions, segmentationModelOptions } from "../../lib/modelOptions";
+import { randomUuid } from "../../lib/randomUuid";
+import { LayersPanel, type LayerBbox, type LayerManualElement } from "./LayersPanel";
+import styles from "./workbench.module.css";
+import editorStyles from './EditImageWorkspace.module.css';
+import { downloadOriginal, outputFileName } from '../../lib/downloadImage';
+import { outputPreviewUrl, outputThumbnailUrl } from '../../lib/assetUrl';
+type Tool = "pan" | "rect" | "brush" | "erase" | "protect" | "arrow" | "text";
+type TurnState = OperationOutput<'getEditTurn'>['status'];
+type ReferenceSelection = OperationOutput<'listEditReferenceAssets'>['suggestedSelections'][number];
+type ReferencePurpose = ReferenceSelection['purpose'];
+type ReferenceAssetView = OperationOutput<'listEditReferenceAssets'>['items'][number];
+type EditTurn = Pick<OperationOutput<'getEditTurn'>, 'id' | 'status' | 'plan' | 'error' | 'recoveryJobId'>;
+interface Point {
+    x: number;
+    y: number;
+}
+interface Bounds {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+interface TextDraft {
+    point: Point;
+    value: string;
+}
+interface Snapshot {
+    edit: string;
+    protect: string;
+    annotations: Array<Record<string, unknown>>;
+}
+type EditSessionState = OperationOutput<'createEditSession'> & Partial<Pick<OperationOutput<'getEditSession'>, 'versions' | 'turns'>>;
+type VersionFeedback = { key: string; baseOutputId: string; turnId?: string; status: TurnState | 'SUBMITTING' | 'APPROVING'; error?: string; inputFingerprint?: string };
+function feedbackError(message: unknown): string {
+    if (typeof message !== 'string') return '请查看任务状态或重新生成计划。';
+    const code = message.match(/^[A-Z][A-Z0-9_]{2,63}(?::|$)/)?.[0]?.replace(/:$/, '');
+    return code ? editErrorLabel(code) : '请查看任务状态或重新生成计划。';
+}
+type RectHandle = "move" | "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
+interface Interaction {
+    start: Point | null;
+    last: Point | null;
+    erased: Bounds | null;
+    rectId: string | null;
+    rectBounds: Bounds | null;
+    rectHandle: RectHandle | null;
+}
+type EditProjectDefaults = Pick<ProjectDetail, "reasoningProviderId" | "reasoningModelId" | "imageProviderId" | "imageModelId" | "imageResolution" | "candidatesPerType" | "segmentationModel">;
+const MARK_COLORS = ["#1888f2", "#ff5c5c", "#ffbf2f", "#25bd7b", "#9968f2"];
+const EDIT_OVERLAY_COLOR = "#006dff";
+const PROTECT_OVERLAY_COLOR = "#f07800";
+// 分层模式手动框选/悬停高亮使用编辑蓝，避免与保护区橙色混淆
+const LAYER_BOX_COLOR = "#1888f2";
+const EDIT_OVERLAY_ALPHA = 0.72;
+const PROTECT_OVERLAY_ALPHA = 0.64;
+const MAX_HISTORY_ENTRIES = 20;
+const MAX_HISTORY_BYTES = 32 * 1024 * 1024;
+const PURPOSE_OPTIONS: Array<{
+    value: ReferencePurpose;
+    label: string;
+}> = [{ value: "PRODUCT_APPEARANCE", label: "外观" }, { value: "PACKAGING", label: "包装" }, { value: "LABEL", label: "标签" }, { value: "STYLE", label: "风格" }, { value: "LAYOUT", label: "构图" }];
+/** 参考图片只能来自后台公开的受管资源。 */
+export const resolveReferenceImageUrl = restrictedResourceUrl;
+function boundsFor(point: Point, size: number): Bounds { return { x: point.x - size / 2, y: point.y - size / 2, width: size, height: size }; }
+function mergeBounds(current: Bounds | null, next: Bounds): Bounds { if (!current)
+    return next; const x = Math.min(current.x, next.x); const y = Math.min(current.y, next.y); return { x, y, width: Math.max(current.x + current.width, next.x + next.width) - x, height: Math.max(current.y + current.height, next.y + next.height) - y }; }
+function intersects(left: Bounds, right: Bounds): boolean { return left.x < right.x + right.width && left.x + left.width > right.x && left.y < right.y + right.height && left.y + left.height > right.y; }
+function contains(bounds: Bounds, point: Point): boolean { return point.x >= bounds.x && point.x <= bounds.x + bounds.width && point.y >= bounds.y && point.y <= bounds.y + bounds.height; }
+function moveBounds(bounds: Bounds, from: Point, to: Point, width: number, height: number): Bounds {
+    return {
+        ...bounds,
+        x: Math.max(0, Math.min(width - bounds.width, bounds.x + to.x - from.x)),
+        y: Math.max(0, Math.min(height - bounds.height, bounds.y + to.y - from.y)),
+    };
+}
+function rectHandleForPoint(bounds: Bounds, point: Point, tolerance: number): RectHandle | null {
+    const left = bounds.x;
+    const right = bounds.x + bounds.width;
+    const top = bounds.y;
+    const bottom = bounds.y + bounds.height;
+    const centerX = left + bounds.width / 2;
+    const centerY = top + bounds.height / 2;
+    const handles: Array<[
+        Exclude<RectHandle, "move">,
+        number,
+        number
+    ]> = [["nw", left, top], ["ne", right, top], ["se", right, bottom], ["sw", left, bottom], ["n", centerX, top], ["e", right, centerY], ["s", centerX, bottom], ["w", left, centerY]];
+    const hit = handles.find(([, x, y]) => Math.abs(point.x - x) <= tolerance && Math.abs(point.y - y) <= tolerance);
+    if (hit)
+        return hit[0];
+    const inHorizontalRange = point.x >= left - tolerance && point.x <= right + tolerance;
+    const inVerticalRange = point.y >= top - tolerance && point.y <= bottom + tolerance;
+    if (inHorizontalRange && (Math.abs(point.y - top) <= tolerance || Math.abs(point.y - bottom) <= tolerance))
+        return "move";
+    if (inVerticalRange && (Math.abs(point.x - left) <= tolerance || Math.abs(point.x - right) <= tolerance))
+        return "move";
+    return null;
+}
+function cursorForRectHandle(handle: RectHandle): string {
+    if (handle === "move")
+        return "move";
+    if (handle === "nw" || handle === "se")
+        return "nwse-resize";
+    if (handle === "ne" || handle === "sw")
+        return "nesw-resize";
+    if (handle === "n" || handle === "s")
+        return "ns-resize";
+    return "ew-resize";
+}
+function resizeBounds(bounds: Bounds, handle: Exclude<RectHandle, "move">, point: Point, width: number, height: number): Bounds {
+    const minSize = 8;
+    let left = bounds.x;
+    let right = bounds.x + bounds.width;
+    let top = bounds.y;
+    let bottom = bounds.y + bounds.height;
+    if (handle.includes("w"))
+        left = Math.max(0, Math.min(right - minSize, point.x));
+    if (handle.includes("e"))
+        right = Math.min(width, Math.max(left + minSize, point.x));
+    if (handle.includes("n"))
+        top = Math.max(0, Math.min(bottom - minSize, point.y));
+    if (handle.includes("s"))
+        bottom = Math.min(height, Math.max(top + minSize, point.y));
+    return { x: left, y: top, width: right - left, height: bottom - top };
+}
+function drawSelectionHandles(context: CanvasRenderingContext2D, bounds: Bounds, canvasWidth: number): void {
+    const half = Math.max(4, canvasWidth / 180);
+    const positions: Array<[
+        number,
+        number
+    ]> = [[bounds.x, bounds.y], [bounds.x + bounds.width / 2, bounds.y], [bounds.x + bounds.width, bounds.y], [bounds.x + bounds.width, bounds.y + bounds.height / 2], [bounds.x + bounds.width, bounds.y + bounds.height], [bounds.x + bounds.width / 2, bounds.y + bounds.height], [bounds.x, bounds.y + bounds.height], [bounds.x, bounds.y + bounds.height / 2]];
+    context.save();
+    context.setLineDash([]);
+    context.fillStyle = "#f8fbff";
+    context.strokeStyle = EDIT_OVERLAY_COLOR;
+    context.lineWidth = Math.max(2, canvasWidth / 650);
+    for (const [x, y] of positions) {
+        context.fillRect(x - half, y - half, half * 2, half * 2);
+        context.strokeRect(x - half, y - half, half * 2, half * 2);
+    }
+    context.restore();
+}
+function drawMaskOverlay(context: CanvasRenderingContext2D, mask: HTMLCanvasElement, tint: HTMLCanvasElement, color: string, alpha: number): void {
+    const tintContext = tint.getContext("2d");
+    if (!tintContext)
+        return;
+    tintContext.globalCompositeOperation = "source-over";
+    tintContext.clearRect(0, 0, tint.width, tint.height);
+    tintContext.fillStyle = color;
+    tintContext.fillRect(0, 0, tint.width, tint.height);
+    tintContext.globalCompositeOperation = "destination-in";
+    tintContext.drawImage(mask, 0, 0);
+    context.save();
+    context.globalCompositeOperation = "source-over";
+    context.globalAlpha = alpha;
+    context.drawImage(tint, 0, 0);
+    context.restore();
+}
+export function EditImageWorkspace({ projectId, project, output, outputs, assets, onSelectOutput, onClose }: {
+    projectId: string;
+    project?: EditProjectDefaults;
+    output: Output | undefined;
+    outputs: Output[];
+    assets: Asset[];
+    onSelectOutput: (outputId: string) => void;
+    onClose: () => void;
+}) {
+    const providers = useProviders();
+    const { notification, message: antdMessage } = App.useApp();
+    const updateProject = useUpdateProject(projectId);
+    const imageRef = useRef<HTMLImageElement>(null);
+    const overlayRef = useRef<HTMLCanvasElement>(null);
+    const textInputRef = useRef<HTMLInputElement>(null);
+    const editMaskRef = useRef<HTMLCanvasElement | null>(null);
+    const protectMaskRef = useRef<HTMLCanvasElement | null>(null);
+    const editTintRef = useRef<HTMLCanvasElement | null>(null);
+    const protectTintRef = useRef<HTMLCanvasElement | null>(null);
+    const interactionRef = useRef<Interaction>({ start: null, last: null, erased: null, rectId: null, rectBounds: null, rectHandle: null });
+    const hoverRef = useRef<Point | null>(null);
+    const previewRef = useRef<{
+        type: "rect" | "arrow";
+        start: Point;
+        end: Point;
+        color: string;
+    } | null>(null);
+    const renderFrameRef = useRef<number | null>(null);
+    const historyRef = useRef<Snapshot[]>([]);
+    const historyIndexRef = useRef(-1);
+    const [tool, setTool] = useState<Tool>("rect");
+    const [brushSize, setBrushSize] = useState(48);
+    const [markColor, setMarkColor] = useState(MARK_COLORS[0]!);
+    const [textSize, setTextSize] = useState(32);
+    const [textDraft, setTextDraft] = useState<TextDraft | null>(null);
+    const [message, setMessage] = useState("");
+    const [sessionId, setSessionId] = useState<string | null>(null);
+    const [sessionError, setSessionError] = useState<string | null>(null);
+    const [sessionRetry, setSessionRetry] = useState(0);
+    const sessionGenerationRef = useRef(0);
+    const [turn, setTurn] = useState<EditTurn | null>(null);
+    const [feedback, setFeedback] = useState<VersionFeedback[]>([]);
+    const [maskRevision, setMaskRevision] = useState(0);
+    const [plannedInput, setPlannedInput] = useState<string | null>(null);
+    const [submitting, setSubmitting] = useState(false);
+    const submitLock = useRef(false);
+    const restoredTurnRef = useRef<string | null>(null);
+    const [recoveredPlan, setRecoveredPlan] = useState(false);
+    const [showOverlay, setShowOverlay] = useState(true);
+    const [annotations, setAnnotations] = useState<Array<Record<string, unknown>>>([]);
+    const [selectedRectId, setSelectedRectId] = useState<string | null>(null);
+    const [referenceSelections, setReferenceSelections] = useState<ReferenceSelection[]>([]);
+    const [referenceAssets, setReferenceAssets] = useState<ReferenceAssetView[]>([]);
+    const [suggestedReferenceSelections, setSuggestedReferenceSelections] = useState<ReferenceSelection[]>([]);
+    const [referencePickerOpen, setReferencePickerOpen] = useState(false);
+    const [referenceTab, setReferenceTab] = useState<"PROJECT" | "TEMPORARY">("PROJECT");
+    const [referenceLoading, setReferenceLoading] = useState(false);
+    const [referenceUploading, setReferenceUploading] = useState(false);
+    const [referenceDragActive, setReferenceDragActive] = useState(false);
+    const uploadControllerRef = useRef<AbortController | null>(null);
+    const uploadCancelledRef = useRef(false);
+    const referenceFileRef = useRef<HTMLInputElement>(null);
+    const [outpaintEdges, setOutpaintEdges] = useState({ top: 0, right: 0, bottom: 0, left: 0 });
+    const [history, setHistory] = useState<Snapshot[]>([]);
+    const [historyIndex, setHistoryIndex] = useState(-1);
+    const [zoom, setZoom] = useState(1);
+    const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+    const [session, setSession] = useState<EditSessionState | null>(null);
+    const [memorySummary, setMemorySummary] = useState("");
+    const [memoryConstraints, setMemoryConstraints] = useState("");
+    const [memorySourceOutputId, setMemorySourceOutputId] = useState<string | undefined>();
+    const [compareOutputId, setCompareOutputId] = useState<string | null>(null);
+    const [layersOpen, setLayersOpen] = useState(false);
+    const [layersEverOpened, setLayersEverOpened] = useState(false);
+    const [manualElements, setManualElements] = useState<LayerManualElement[]>([]);
+    const [layerHover, setLayerHover] = useState<LayerBbox | null>(null);
+    const [layerBoxError, setLayerBoxError] = useState<string | null>(null);
+    // 分层模式下选中的手动画框元素 id：移动/缩放与选中手柄的判定依据
+    const [layerSelectedId, setLayerSelectedId] = useState<string | null>(null);
+    const spacePanRef = useRef(false);
+    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [reasoningModel, setReasoningModel] = useState("");
+    const [imageModel, setImageModel] = useState("");
+    const [imageResolution, setImageResolution] = useState<EditProjectDefaults["imageResolution"]>("1K");
+    const [candidateCount, setCandidateCount] = useState(1);
+    const panRef = useRef<{
+        startX: number;
+        startY: number;
+        originX: number;
+        originY: number;
+    } | null>(null);
+    const pendingAutoSelectRef = useRef<string | null>(null);
+    const lastOutputRef = useRef<Output | undefined>(undefined);
+    const sessionRequestRef = useRef<{ key: string; promise: Promise<OperationOutput<'getEditSession'>> } | null>(null);
+    const resetKeyRef = useRef<string | null>(null);
+    const sessionReadyKeyRef = useRef<string | null>(null);
+    useEffect(() => { if (output)
+        lastOutputRef.current = output; }, [output]);
+    // 弹窗关闭时保留编辑状态：以最后一次选中的成图继续渲染，重开同一张图不重置会话与画布
+    const activeOutput = output ?? lastOutputRef.current;
+    useEffect(() => {
+        if (!project)
+            return;
+        // Provider 引用可空（删除后置空）：null 时回到空选择，提交前由模型必选校验拦截
+        setReasoningModel(project.reasoningProviderId && project.reasoningModelId ? `${project.reasoningProviderId}::${project.reasoningModelId}` : "");
+        setImageModel(project.imageProviderId && project.imageModelId ? `${project.imageProviderId}::${project.imageModelId}` : "");
+        setImageResolution(project.imageResolution);
+        setCandidateCount(project.candidatesPerType);
+        setSettingsOpen(false);
+    }, [project?.reasoningProviderId, project?.reasoningModelId, project?.imageProviderId, project?.imageModelId, project?.imageResolution, project?.candidatesPerType]);
+    const redrawOverlay = (nextAnnotations = annotations, nextSelectedRectId = selectedRectId) => {
+        const overlay = overlayRef.current;
+        const edit = editMaskRef.current;
+        const protect = protectMaskRef.current;
+        const editTint = editTintRef.current;
+        const protectTint = protectTintRef.current;
+        if (!overlay || !edit || !protect || !editTint || !protectTint)
+            return;
+        const context = overlay.getContext("2d");
+        if (!context)
+            return;
+        context.globalCompositeOperation = "source-over";
+        context.clearRect(0, 0, overlay.width, overlay.height);
+        // 分层模式语义独立：只画手动框选与悬停高亮，不渲染编辑/保护标记或旧标注，避免污染下一次编辑提交
+        if (!layersOpen) {
+            drawMaskOverlay(context, edit, editTint, EDIT_OVERLAY_COLOR, EDIT_OVERLAY_ALPHA);
+            drawMaskOverlay(context, protect, protectTint, PROTECT_OVERLAY_COLOR, PROTECT_OVERLAY_ALPHA);
+        }
+        if (layersOpen) {
+            for (const element of manualElements) {
+                const bounds = { x: element.bbox.x * overlay.width, y: element.bbox.y * overlay.height, width: element.bbox.width * overlay.width, height: element.bbox.height * overlay.height };
+                context.save();
+                context.strokeStyle = LAYER_BOX_COLOR;
+                context.lineWidth = Math.max(3, overlay.width / 450);
+                context.setLineDash([Math.max(6, overlay.width / 110), Math.max(4, overlay.width / 170)]);
+                context.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+                context.restore();
+            }
+            if (layerHover) {
+                const bounds = { x: layerHover.x * overlay.width, y: layerHover.y * overlay.height, width: layerHover.width * overlay.width, height: layerHover.height * overlay.height };
+                context.save();
+                context.fillStyle = LAYER_BOX_COLOR;
+                context.strokeStyle = LAYER_BOX_COLOR;
+                context.globalAlpha = 0.22;
+                context.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+                context.globalAlpha = 1;
+                context.lineWidth = Math.max(3, overlay.width / 450);
+                context.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+                context.restore();
+            }
+            // 选中的手动框画 8 手柄：元素可能刚被删除，存在性守卫避免画到残留 id
+            const selectedLayerBox = layerSelectedId ? manualElements.find((element) => element.id === layerSelectedId) : null;
+            if (selectedLayerBox) {
+                const bounds = { x: selectedLayerBox.bbox.x * overlay.width, y: selectedLayerBox.bbox.y * overlay.height, width: selectedLayerBox.bbox.width * overlay.width, height: selectedLayerBox.bbox.height * overlay.height };
+                drawSelectionHandles(context, bounds, overlay.width);
+            }
+        }
+        if (!layersOpen) {
+            context.save();
+            context.lineWidth = Math.max(3, overlay.width / 450);
+            for (const annotation of nextAnnotations) {
+                const color = annotation.type === "rect" ? EDIT_OVERLAY_COLOR : typeof annotation.color === "string" ? annotation.color : "#4da6ff";
+                if (annotation.type === "rect" && annotation.bounds && typeof annotation.bounds === "object") {
+                    const bounds = annotation.bounds as Bounds;
+                    context.save();
+                    context.strokeStyle = color;
+                    context.fillStyle = color;
+                    context.globalAlpha = 0.12;
+                    context.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+                    context.globalAlpha = 1;
+                    context.setLineDash([Math.max(6, overlay.width / 110), Math.max(4, overlay.width / 170)]);
+                    context.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+                    context.restore();
+                    if (tool === "rect" && annotation.id === nextSelectedRectId)
+                        drawSelectionHandles(context, bounds, overlay.width);
+                }
+                if (annotation.type === "arrow" && Array.isArray(annotation.points) && annotation.points.length === 2)
+                    drawArrow(context, annotation.points[0] as Point, annotation.points[1] as Point, color, overlay.width);
+                if (annotation.type === "text" && typeof annotation.text === "string" && annotation.point && typeof annotation.point === "object") {
+                    const point = annotation.point as Point;
+                    const size = typeof annotation.fontSize === "number" ? annotation.fontSize : 32;
+                    context.save();
+                    context.fillStyle = color;
+                    context.font = `${size}px sans-serif`;
+                    context.textBaseline = "top";
+                    context.fillText(annotation.text, point.x, point.y);
+                    context.restore();
+                }
+            }
+            if (textDraft) {
+                context.save();
+                context.fillStyle = markColor;
+                context.globalAlpha = 0.78;
+                context.font = `${textSize}px sans-serif`;
+                context.textBaseline = "top";
+                context.fillText(textDraft.value || "输入文字", textDraft.point.x, textDraft.point.y);
+                context.restore();
+            }
+            context.restore();
+        }
+        const preview = previewRef.current;
+        if (preview?.type === "rect") {
+            const bounds = { x: Math.min(preview.start.x, preview.end.x), y: Math.min(preview.start.y, preview.end.y), width: Math.abs(preview.start.x - preview.end.x), height: Math.abs(preview.start.y - preview.end.y) };
+            context.save();
+            context.strokeStyle = preview.color;
+            context.fillStyle = preview.color;
+            context.globalAlpha = 0.16;
+            context.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+            context.globalAlpha = 1;
+            context.setLineDash([Math.max(6, overlay.width / 110), Math.max(4, overlay.width / 170)]);
+            context.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+            context.restore();
+            if (interactionRef.current.rectId)
+                drawSelectionHandles(context, bounds, overlay.width);
+        }
+        if (preview?.type === "arrow" && !layersOpen)
+            drawArrow(context, preview.start, preview.end, preview.color, overlay.width);
+        const hover = hoverRef.current;
+        if (!layersOpen && hover && ["brush", "erase", "protect"].includes(tool)) {
+            context.save();
+            context.lineWidth = Math.max(2, overlay.width / 700);
+            context.setLineDash([Math.max(5, overlay.width / 150), Math.max(4, overlay.width / 190)]);
+            context.strokeStyle = tool === "erase" ? "#f0f3f5" : tool === "protect" ? PROTECT_OVERLAY_COLOR : EDIT_OVERLAY_COLOR;
+            context.beginPath();
+            context.arc(hover.x, hover.y, brushSize / 2, 0, Math.PI * 2);
+            context.stroke();
+            context.restore();
+        }
+    };
+    // rAF 延迟渲染执行的是调度那一刻的 redrawOverlay 闭包；快速框选时残留 rAF 可能在状态提交后才触发，
+    // 过期闭包会把刚画上的选框抹掉（表现为选框不出现，再点一下才显现）。执行时改用最新一次渲染的 redrawOverlay，
+    // 残留帧与最终帧等价，重放顺序不再影响结果
+    const businessActive = useBusinessActive();
+    const redrawOverlayRef = useRef(redrawOverlay);
+    redrawOverlayRef.current = redrawOverlay;
+    const scheduleRender = () => {
+        if (renderFrameRef.current !== null)
+            return;
+        renderFrameRef.current = requestAnimationFrame(() => { renderFrameRef.current = null; redrawOverlayRef.current(); });
+    };
+    useEffect(() => () => { if (renderFrameRef.current !== null)
+        cancelAnimationFrame(renderFrameRef.current); }, []);
+    // 分层框选占用画布默认指针交互；按住空格临时平移画布，沿用编辑器的 pan 手势习惯
+    useEffect(() => {
+        if (!businessActive || !layersOpen)
+            return;
+        // 正在输入时空格是文本的一部分，不能拿来平移画布
+        const editableTarget = (target: EventTarget | null) => target instanceof HTMLElement && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable);
+        const keyDown = (event: KeyboardEvent) => { if (event.code !== "Space" || event.repeat || editableTarget(event.target))
+            return; event.preventDefault(); spacePanRef.current = true; };
+        const keyUp = (event: KeyboardEvent) => { if (event.code !== "Space")
+            return; spacePanRef.current = false; };
+        window.addEventListener("keydown", keyDown);
+        window.addEventListener("keyup", keyUp);
+        return () => { window.removeEventListener("keydown", keyDown); window.removeEventListener("keyup", keyUp); spacePanRef.current = false; };
+    }, [businessActive, layersOpen]);
+    useEffect(() => {
+        // 悬停高亮可能指向自动/提示词元素，父组件没有它们的包围盒；移除元素时由 onHover(null) 清理
+        redrawOverlay(annotations, selectedRectId);
+    }, [annotations, selectedRectId, tool, brushSize, markColor, textDraft, layersOpen, manualElements, layerHover, layerSelectedId]);
+    useEffect(() => {
+        if (!activeOutput)
+            return;
+        // 仅在切换到不同成图（或不同项目）时重置；关闭后重开同一张图保留全部编辑状态
+        const key = `${projectId}:${activeOutput.id}`;
+        if (resetKeyRef.current === key) return;
+        resetKeyRef.current = key;
+        sessionGenerationRef.current += 1;
+        sessionRequestRef.current = null;
+        sessionReadyKeyRef.current = null;
+        setSessionError(null);
+        setSessionId(null);
+        setSession(null);
+        setTurn(null);
+        setPlannedInput(null);
+        setRecoveredPlan(false);
+        restoredTurnRef.current = null;
+        setMaskRevision(0);
+        setMessage("");
+        setAnnotations([]);
+        setSelectedRectId(null);
+        setReferenceSelections([]);
+        setSuggestedReferenceSelections([]);
+        setReferenceAssets(projectReferenceAssets());
+        setReferencePickerOpen(false);
+        setOutpaintEdges({ top: 0, right: 0, bottom: 0, left: 0 });
+        setHistory([]);
+        setHistoryIndex(-1);
+        setTextDraft(null);
+        setZoom(1);
+        setPanOffset({ x: 0, y: 0 });
+        setCompareOutputId(null);
+        setMemorySourceOutputId(undefined);
+        setLayersOpen(false);
+        setManualElements([]);
+        setLayerHover(null);
+        setLayerSelectedId(null);
+        setLayerBoxError(null);
+    }, [activeOutput?.id, projectId]);
+    useEffect(() => {
+        if (!output || !activeOutput || sessionId) return;
+        const editKey = `${projectId}:${activeOutput.id}`;
+        if (sessionRequestRef.current?.key !== editKey) sessionRequestRef.current = {
+            key: editKey,
+            promise: invoke('createEditSession', { projectId, outputId: activeOutput.id }).then(created => invoke('getEditSession', { sessionId: created.id })),
+        };
+        const request = sessionRequestRef.current;
+        let cancelled = false;
+        setSessionError(null);
+        void request.promise.then((value) => { if (cancelled)
+            return;
+            sessionReadyKeyRef.current = editKey;
+            setSessionId(value.id); setSession(value); setFeedback(current => current.filter(item => !item.turnId || item.status === 'APPROVING' || !(value.turns ?? []).some(saved => saved.id === item.turnId))); setMemorySummary(value.memorySummary?.summary ?? ""); setMemoryConstraints((value.memorySummary?.constraints ?? []).join("\n")); setMemorySourceOutputId(value.memorySummary?.sourceOutputId);
+            const unfinished = [...(value.turns ?? [])].filter(candidate => candidate.baseOutputId === activeOutput.id && !['SUCCEEDED', 'FAILED', 'CANCELLED'].includes(candidate.status)).sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0];
+            if (unfinished) {
+                setTurn(unfinished);
+                setMessage(unfinished.message);
+                setReferenceSelections(unfinished.referenceSelections ?? []);
+                setAnnotations(Array.isArray(unfinished.annotations.annotations) ? unfinished.annotations.annotations as Array<Record<string, unknown>> : []);
+                const expansion = unfinished.annotations.canvasExpansion as typeof outpaintEdges | undefined;
+                if (expansion) setOutpaintEdges(expansion);
+                const config = unfinished.annotations.generationConfig as { reasoningProviderId?: string; reasoningModelId?: string; imageProviderId?: string; imageModelId?: string; imageResolution?: EditProjectDefaults['imageResolution']; candidateCount?: number } | undefined;
+                if (config?.reasoningProviderId && config.reasoningModelId) setReasoningModel(`${config.reasoningProviderId}::${config.reasoningModelId}`);
+                if (config?.imageProviderId && config.imageModelId) setImageModel(`${config.imageProviderId}::${config.imageModelId}`);
+                if (config?.imageResolution) setImageResolution(config.imageResolution);
+                if (config?.candidateCount) setCandidateCount(config.candidateCount);
+                restoredTurnRef.current = unfinished.id;
+                setRecoveredPlan(true);
+            }
+            void loadReferenceAssets(value.id).catch(error => antdMessage.error(errorText(error)));
+        }).catch(error => {
+            if (sessionRequestRef.current === request) sessionRequestRef.current = null;
+            if (!cancelled) setSessionError(errorText(error));
+        });
+        return () => { cancelled = true; };
+    }, [activeOutput?.id, projectId, Boolean(output), sessionId, sessionRetry]);
+    // 只绑定会改变执行内容的输入；缩放、工具切换和关闭窗口不使已审阅方案失效。
+    const inputFingerprint = JSON.stringify({ outputId: activeOutput?.id, message: message.trim(), annotations, referenceSelections, outpaintEdges, reasoningModel, imageModel, imageResolution, candidateCount, maskRevision, memorySummary, memoryConstraints, textDraft });
+    const latestInputRef = useRef(inputFingerprint);
+    latestInputRef.current = inputFingerprint;
+    useEffect(() => {
+        if (restoredTurnRef.current && restoredTurnRef.current === turn?.id) {
+            setPlannedInput(inputFingerprint);
+            restoredTurnRef.current = null;
+        }
+    }, [inputFingerprint, turn?.id]);
+    const planChanged = plannedInput !== inputFingerprint;
+    const awaitingConfirmation = turn?.status === 'AWAITING_CONFIRMATION' || turn?.status === 'PLAN_READY';
+    const referenceImageUrl = (url: string) => resolveReferenceImageUrl(url);
+    const projectAssetSignature = assets.map((asset) => `${asset.id}:${asset.role}`).join("|");
+    const projectReferenceAssets = (): ReferenceAssetView[] => assets.map((asset) => ({ id: asset.id, source: "PROJECT", purpose: asset.role === "PRODUCT_TRUTH" ? "PRODUCT_APPEARANCE" : asset.role === "PACKAGING" ? "PACKAGING" : asset.role === "STYLE_REFERENCE" ? "STYLE" : "LAYOUT", role: asset.role, originalName: asset.originalName ?? `项目素材 ${asset.id.slice(0, 6)}`, mimeType: asset.mimeType, url: assetPreviewUrl(asset), hash: asset.hash ?? "", createdAt: asset.createdAt, expiresAt: null }));
+    useEffect(() => { const projectItems = projectReferenceAssets(); setReferenceAssets((current) => { const temporary = current.filter((item) => item.source === "TEMPORARY"); return [...projectItems, ...temporary]; }); }, [projectAssetSignature]);
+    const loadReferenceAssets = async (id: string) => { const generation = sessionGenerationRef.current; setReferenceLoading(true); try {
+        const result = await invoke("listEditReferenceAssets", { sessionId: id });
+        if (generation !== sessionGenerationRef.current) return;
+        const loaded = result.items.map((item) => ({ ...item, url: referenceImageUrl(item.url) }));
+        setReferenceAssets((current) => { const byKey = new Map(current.map((item) => [`${item.source}:${item.id}`, item])); for (const item of loaded)
+            byKey.set(`${item.source}:${item.id}`, item); return [...byKey.values()]; });
+        setSuggestedReferenceSelections(result.suggestedSelections ?? []);
+    }
+    finally {
+        if (generation === sessionGenerationRef.current) setReferenceLoading(false);
+    } };
+    useEffect(() => {
+        if (!referencePickerOpen)
+            return;
+        setReferenceAssets((current) => {
+            const byKey = new Map(current.map((item) => [`${item.source}:${item.id}`, item]));
+            for (const item of projectReferenceAssets())
+                byKey.set(`${item.source}:${item.id}`, item);
+            return [...byKey.values()];
+        });
+        if (sessionId)
+            void loadReferenceAssets(sessionId).catch(error => antdMessage.error(errorText(error)));
+    }, [referencePickerOpen, sessionId, projectAssetSignature]);
+    const toggleReference = (asset: ReferenceAssetView) => setReferenceSelections((current) => { const found = current.find((selection) => selection.id === asset.id && selection.source === asset.source); if (found)
+        return current.filter((selection) => selection !== found).map((selection, order) => ({ ...selection, order })); return [...current, { id: asset.id, source: asset.source, purpose: asset.purpose, order: current.length }]; });
+    const updateReferencePurpose = (asset: ReferenceAssetView, purpose: ReferencePurpose) => setReferenceSelections((current) => current.map((selection) => selection.id === asset.id && selection.source === asset.source ? { ...selection, purpose } : selection));
+    const removeReference = async (asset: ReferenceAssetView) => { setReferenceSelections((current) => current.filter((selection) => !(selection.id === asset.id && selection.source === asset.source)).map((selection, order) => ({ ...selection, order }))); if (asset.source === "TEMPORARY" && sessionId) {
+        await invoke("deleteEditReferenceAsset", { sessionId, referenceAssetId: asset.id });
+        setReferenceAssets((current) => current.filter((item) => item.id !== asset.id));
+    } };
+    const promoteReference = async (asset: ReferenceAssetView) => { if (!sessionId || asset.source !== "TEMPORARY")
+        return; const item = await invoke("promoteEditReferenceAsset", { sessionId, referenceAssetId: asset.id }); const normalized = { ...item, url: referenceImageUrl(item.url) }; setReferenceAssets((current) => [...current.filter((candidate) => candidate.id !== asset.id), normalized]); setReferenceSelections((current) => current.map((selection) => selection.id === asset.id && selection.source === "TEMPORARY" ? { ...selection, id: normalized.id, source: "PROJECT" } : selection)); };
+    const uploadReference = async (file: File, targetSessionId?: string) => { const activeSessionId = targetSessionId ?? sessionId; if (!activeSessionId)
+        return; const controller = new AbortController(); uploadControllerRef.current = controller; setReferenceUploading(true); try {
+        const bytes = await fileInput(file);
+        if (controller.signal.aborted) return;
+        const item = await invoke("uploadEditReferenceAsset", { sessionId: activeSessionId, file: bytes, purpose: "PRODUCT_APPEARANCE" });
+        if (controller.signal.aborted) { await invoke("deleteEditReferenceAsset", { sessionId: activeSessionId, referenceAssetId: item.id }); return; }
+        const normalized = { ...item, url: referenceImageUrl(item.url) };
+        setReferenceAssets((current) => [...current, normalized]);
+        setReferenceSelections((current) => [...current, { id: normalized.id, source: "TEMPORARY", purpose: normalized.purpose, order: current.length }]);
+        setReferenceTab("TEMPORARY");
+    }
+    catch (error) {
+        if (!(error instanceof DOMException && error.name === "AbortError"))
+            setTurn({ id: "", status: "FAILED", plan: null, error: { message: errorText(error) } });
+    }
+    finally {
+        uploadControllerRef.current = null;
+        setReferenceUploading(false);
+    } };
+    const uploadReferenceFiles = async (files: File[]) => {
+        const images = files.filter((file) => file.type.startsWith("image/"));
+        if (!images.length)
+            return;
+        uploadCancelledRef.current = false;
+        let activeSessionId: string;
+        try { activeSessionId = sessionId ?? await ensureSession(); }
+        catch (error) { void antdMessage.error(errorText(error)); return; }
+        for (const file of images) {
+            if (uploadCancelledRef.current)
+                break;
+            await uploadReference(file, activeSessionId);
+        }
+    };
+    useEffect(() => { if (!turn || ["SUCCEEDED", "FAILED", "NEED_INPUT", "UNKNOWN", "CANCELLED"].includes(turn.status))
+        return; const timer = window.setInterval(() => { void refreshTurn(turn.id).catch(error => antdMessage.error(errorText(error))); }, 1500); return () => window.clearInterval(timer); }, [turn?.id, turn?.status]);
+    useEffect(() => {
+        if (!session || !output || session.currentOutputId === output.id)
+            return;
+        if (pendingAutoSelectRef.current !== session.currentOutputId)
+            return;
+        if (outputs.some((item) => item.id === session.currentOutputId)) {
+            pendingAutoSelectRef.current = null;
+            onSelectOutput(session.currentOutputId);
+        }
+    }, [session?.currentOutputId, output?.id, outputs, onSelectOutput]);
+    useEffect(() => { if (textDraft)
+        window.requestAnimationFrame(() => textInputRef.current?.focus()); }, [textDraft]);
+    const snapshot = (records = annotations): Snapshot => ({ edit: editMaskRef.current?.toDataURL() ?? "", protect: protectMaskRef.current?.toDataURL() ?? "", annotations: records.map((annotation) => structuredClone(annotation)) });
+    const pushHistory = (records = annotations) => {
+        setMaskRevision(value => value + 1);
+        const next = [...historyRef.current.slice(0, historyIndexRef.current + 1), snapshot(records)].slice(-MAX_HISTORY_ENTRIES);
+        let bytes = 0;
+        while (next.length > 1) {
+            bytes = next.reduce((total, value) => total + value.edit.length + value.protect.length + JSON.stringify(value.annotations).length, 0);
+            if (bytes <= MAX_HISTORY_BYTES)
+                break;
+            next.shift();
+        }
+        historyRef.current = next;
+        historyIndexRef.current = next.length - 1;
+        setHistory(next);
+        setHistoryIndex(next.length - 1);
+    };
+    const restoreHistory = (index: number) => {
+        const value = historyRef.current[index];
+        if (!value || !editMaskRef.current || !protectMaskRef.current)
+            return;
+        const load = (canvas: HTMLCanvasElement, url: string) => new Promise<void>((resolve) => { const image = new Image(); image.onload = () => { canvas.getContext("2d")?.clearRect(0, 0, canvas.width, canvas.height); canvas.getContext("2d")?.drawImage(image, 0, 0); resolve(); }; image.src = url; });
+        setMaskRevision(value => value + 1);
+        void Promise.all([load(editMaskRef.current, value.edit), load(protectMaskRef.current, value.protect)]).then(() => { historyIndexRef.current = index; setHistoryIndex(index); setSelectedRectId(null); setAnnotations(value.annotations); redrawOverlay(value.annotations, null); });
+    };
+    const initializeCanvas = () => {
+        const image = imageRef.current;
+        const overlay = overlayRef.current;
+        if (!image || !overlay || !image.naturalWidth || !image.naturalHeight)
+            return;
+        const edit = document.createElement("canvas");
+        const protect = document.createElement("canvas");
+        const editTint = document.createElement("canvas");
+        const protectTint = document.createElement("canvas");
+        for (const canvas of [overlay, edit, protect, editTint, protectTint]) {
+            canvas.width = image.naturalWidth;
+            canvas.height = image.naturalHeight;
+        }
+        editMaskRef.current = edit;
+        protectMaskRef.current = protect;
+        editTintRef.current = editTint;
+        protectTintRef.current = protectTint;
+        interactionRef.current = { start: null, last: null, erased: null, rectId: null, rectBounds: null, rectHandle: null };
+        const initial = snapshot(annotations);
+        historyRef.current = [initial];
+        historyIndexRef.current = 0;
+        setHistory([initial]);
+        setHistoryIndex(0);
+        redrawOverlay(annotations, null);
+    };
+    const pointFor = (event: ReactPointerEvent<HTMLCanvasElement>): Point | null => { const canvas = overlayRef.current; if (!canvas)
+        return null; const rect = canvas.getBoundingClientRect(); return { x: (event.clientX - rect.left) * (canvas.width / rect.width), y: (event.clientY - rect.top) * (canvas.height / rect.height) }; };
+    const stroke = (from: Point, to: Point) => {
+        const targets = tool === "erase" ? [editMaskRef.current, protectMaskRef.current] : [tool === "protect" ? protectMaskRef.current : editMaskRef.current];
+        for (const target of targets) {
+            const context = target?.getContext("2d");
+            if (!context)
+                continue;
+            context.save();
+            context.lineWidth = brushSize;
+            context.lineCap = "round";
+            context.lineJoin = "round";
+            context.globalCompositeOperation = tool === "erase" ? "destination-out" : "source-over";
+            context.strokeStyle = "white";
+            context.fillStyle = "white";
+            context.beginPath();
+            context.moveTo(from.x, from.y);
+            context.lineTo(to.x, to.y);
+            context.stroke();
+            context.beginPath();
+            context.arc(to.x, to.y, brushSize / 2, 0, Math.PI * 2);
+            context.fill();
+            context.restore();
+        }
+        scheduleRender();
+    };
+    const editMaskForSubmit = () => {
+        const edit = editMaskRef.current;
+        if (!edit)
+            return null;
+        const rectangles = annotations.filter((annotation) => annotation.type === "rect" && annotation.bounds && typeof annotation.bounds === "object");
+        if (rectangles.length === 0)
+            return edit;
+        const combined = document.createElement("canvas");
+        combined.width = edit.width;
+        combined.height = edit.height;
+        const context = combined.getContext("2d");
+        if (!context)
+            return edit;
+        context.drawImage(edit, 0, 0);
+        context.fillStyle = "white";
+        for (const annotation of rectangles) {
+            const bounds = annotation.bounds as Bounds;
+            context.fillRect(bounds.x, bounds.y, bounds.width, bounds.height);
+        }
+        return combined;
+    };
+    const commitText = () => {
+        if (!textDraft)
+            return;
+        const value = textDraft.value.trim();
+        if (!value) {
+            setTextDraft(null);
+            return;
+        }
+        const next = [...annotations, { id: randomUuid(), type: "text", point: textDraft.point, text: value, color: markColor, fontSize: textSize, semanticRole: "instruction" }];
+        setAnnotations(next);
+        setTextDraft(null);
+        pushHistory(next);
+    };
+    const rectHitAt = (point: Point) => {
+        const overlay = overlayRef.current;
+        if (!overlay)
+            return null;
+        const displayWidth = overlay.getBoundingClientRect().width || overlay.width;
+        const tolerance = Math.max(6, 8 * (overlay.width / displayWidth));
+        for (const annotation of [...annotations].reverse()) {
+            if (annotation.type !== "rect" || !annotation.bounds || typeof annotation.bounds !== "object" || typeof annotation.id !== "string")
+                continue;
+            const bounds = annotation.bounds as Bounds;
+            const handle = rectHandleForPoint(bounds, point, tolerance);
+            if (handle)
+                return { id: annotation.id, bounds, handle };
+        }
+        return null;
+    };
+    // 分层手动框的命中检测：与编辑 rect 相同的 8 手柄 + 容差，只是数据源是 manualElements（归一化 bbox）
+    const layerBoxHitAt = (point: Point) => {
+        const overlay = overlayRef.current;
+        if (!overlay)
+            return null;
+        const displayWidth = overlay.getBoundingClientRect().width || overlay.width;
+        const tolerance = Math.max(6, 8 * (overlay.width / displayWidth));
+        for (const element of [...manualElements].reverse()) {
+            const bounds = { x: element.bbox.x * overlay.width, y: element.bbox.y * overlay.height, width: element.bbox.width * overlay.width, height: element.bbox.height * overlay.height };
+            const handle = rectHandleForPoint(bounds, point, tolerance);
+            if (handle)
+                return { id: element.id, bounds, handle };
+        }
+        return null;
+    };
+    const updateRectCursor = (canvas: HTMLCanvasElement, point: Point, handle?: RectHandle | null) => {
+        if (layersOpen) {
+            const hit = handle ? null : layerBoxHitAt(point);
+            canvas.style.cursor = handle ? cursorForRectHandle(handle) : hit ? cursorForRectHandle(hit.handle) : "crosshair";
+            return;
+        }
+        if (tool !== "rect")
+            return;
+        const hit = handle ? null : rectHitAt(point);
+        canvas.style.cursor = handle ? cursorForRectHandle(handle) : hit ? cursorForRectHandle(hit.handle) : "crosshair";
+    };
+    const pointerDown = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+        const point = pointFor(event);
+        if (!point)
+            return;
+        hoverRef.current = point;
+        if (tool === "pan" || (layersOpen && spacePanRef.current)) {
+            event.preventDefault();
+            event.currentTarget.setPointerCapture(event.pointerId);
+            panRef.current = { startX: event.clientX, startY: event.clientY, originX: panOffset.x, originY: panOffset.y };
+            return;
+        }
+        if (layersOpen) {
+            // 已存在的手动框优先命中（8 手柄 + 拖拽移动），对齐编辑模式 rect 的交互
+            const hit = layerBoxHitAt(point);
+            if (hit) {
+                event.preventDefault();
+                event.currentTarget.setPointerCapture(event.pointerId);
+                setLayerSelectedId(hit.id);
+                updateRectCursor(event.currentTarget, point, hit.handle);
+                interactionRef.current = { start: point, last: point, erased: null, rectId: hit.id, rectBounds: hit.bounds, rectHandle: hit.handle };
+                return;
+            }
+            const overlay = overlayRef.current;
+            const contained = overlay ? [...manualElements].reverse().find((element) => {
+                const bounds = { x: element.bbox.x * overlay.width, y: element.bbox.y * overlay.height, width: element.bbox.width * overlay.width, height: element.bbox.height * overlay.height };
+                return contains(bounds, point);
+            }) : undefined;
+            if (contained) {
+                setLayerSelectedId(contained.id);
+                updateRectCursor(event.currentTarget, point);
+                return;
+            }
+            setLayerSelectedId(null);
+            event.preventDefault();
+            event.currentTarget.setPointerCapture(event.pointerId);
+            interactionRef.current = { start: point, last: point, erased: null, rectId: null, rectBounds: null, rectHandle: null };
+            previewRef.current = { type: "rect", start: point, end: point, color: LAYER_BOX_COLOR };
+            scheduleRender();
+            return;
+        }
+        if (tool === "text")
+            return;
+        if (tool === "rect") {
+            const hit = rectHitAt(point);
+            if (hit) {
+                event.preventDefault();
+                event.currentTarget.setPointerCapture(event.pointerId);
+                setSelectedRectId(hit.id);
+                updateRectCursor(event.currentTarget, point, hit.handle);
+                interactionRef.current = { start: point, last: point, erased: null, rectId: hit.id, rectBounds: hit.bounds, rectHandle: hit.handle };
+                return;
+            }
+            const contained = [...annotations].reverse().find((annotation) => annotation.type === "rect" && annotation.bounds && typeof annotation.bounds === "object" && contains(annotation.bounds as Bounds, point));
+            if (contained && typeof contained.id === "string") {
+                setSelectedRectId(contained.id);
+                updateRectCursor(event.currentTarget, point);
+                return;
+            }
+            setSelectedRectId(null);
+        }
+        event.preventDefault();
+        event.currentTarget.setPointerCapture(event.pointerId);
+        interactionRef.current = {
+            start: point,
+            last: point,
+            erased: tool === "erase" ? boundsFor(point, brushSize) : null,
+            rectId: null,
+            rectBounds: null,
+            rectHandle: null,
+        };
+        if (tool === "brush" || tool === "erase" || tool === "protect")
+            stroke(point, point);
+    };
+    const placeText = (event: React.MouseEvent<HTMLCanvasElement>) => {
+        if (tool !== "text")
+            return;
+        const point = pointFor({ clientX: event.clientX, clientY: event.clientY } as ReactPointerEvent<HTMLCanvasElement>);
+        if (!point)
+            return;
+        commitText();
+        setTextDraft({ point, value: "" });
+    };
+    const pointerMove = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+        if ((tool === "pan" || (layersOpen && spacePanRef.current)) && panRef.current) {
+            setPanOffset({ x: panRef.current.originX + event.clientX - panRef.current.startX, y: panRef.current.originY + event.clientY - panRef.current.startY });
+            return;
+        }
+        const point = pointFor(event);
+        if (!point)
+            return;
+        hoverRef.current = point;
+        if (layersOpen && !spacePanRef.current) {
+            const dragging = interactionRef.current;
+            if (dragging.start && dragging.rectBounds && dragging.rectHandle) {
+                const width = overlayRef.current?.width ?? 0;
+                const height = overlayRef.current?.height ?? 0;
+                const bounds = dragging.rectHandle === "move" ? moveBounds(dragging.rectBounds, dragging.start, point, width, height) : resizeBounds(dragging.rectBounds, dragging.rectHandle, point, width, height);
+                previewRef.current = { type: "rect", start: { x: bounds.x, y: bounds.y }, end: { x: bounds.x + bounds.width, y: bounds.y + bounds.height }, color: LAYER_BOX_COLOR };
+                updateRectCursor(event.currentTarget, point, dragging.rectHandle);
+                scheduleRender();
+                return;
+            }
+            if (dragging.start) {
+                previewRef.current = { type: "rect", start: dragging.start, end: point, color: LAYER_BOX_COLOR };
+                scheduleRender();
+                return;
+            }
+            updateRectCursor(event.currentTarget, point);
+            scheduleRender();
+            return;
+        }
+        const current = interactionRef.current;
+        if (!current.last) {
+            updateRectCursor(event.currentTarget, point);
+            scheduleRender();
+            return;
+        }
+        if (tool === "rect" && current.rectBounds && current.rectHandle && current.start) {
+            const width = overlayRef.current?.width ?? 0;
+            const height = overlayRef.current?.height ?? 0;
+            const bounds = current.rectHandle === "move" ? moveBounds(current.rectBounds, current.start, point, width, height) : resizeBounds(current.rectBounds, current.rectHandle, point, width, height);
+            previewRef.current = { type: "rect", start: { x: bounds.x, y: bounds.y }, end: { x: bounds.x + bounds.width, y: bounds.y + bounds.height }, color: EDIT_OVERLAY_COLOR };
+            updateRectCursor(event.currentTarget, point, current.rectHandle);
+            scheduleRender();
+            return;
+        }
+        if (tool === "rect" || tool === "arrow") {
+            previewRef.current = { type: tool, start: current.start!, end: point, color: tool === "rect" ? EDIT_OVERLAY_COLOR : markColor };
+            scheduleRender();
+            return;
+        }
+        stroke(current.last, point);
+        current.last = point;
+        if (tool === "erase")
+            current.erased = mergeBounds(current.erased, boundsFor(point, brushSize));
+    };
+    const pointerUp = (event: ReactPointerEvent<HTMLCanvasElement>) => {
+        if (tool === "pan" || (layersOpen && spacePanRef.current)) {
+            panRef.current = null;
+            if (event.currentTarget.hasPointerCapture(event.pointerId))
+                event.currentTarget.releasePointerCapture(event.pointerId);
+            return;
+        }
+        if (layersOpen) {
+            const dragging = interactionRef.current;
+            const point = pointFor(event);
+            interactionRef.current = { start: null, last: null, erased: null, rectId: null, rectBounds: null, rectHandle: null };
+            previewRef.current = null;
+            if (event.currentTarget.hasPointerCapture(event.pointerId))
+                event.currentTarget.releasePointerCapture(event.pointerId);
+            if (!dragging.start || !point)
+                return;
+            const width = overlayRef.current?.width ?? 0;
+            const height = overlayRef.current?.height ?? 0;
+            if (!width || !height)
+                return;
+            // interactionRef 已被重置，但 dragging 仍指向旧对象；移动/缩放提交要在进入新框逻辑前处理
+            if (dragging.rectId && dragging.rectBounds && dragging.rectHandle) {
+                const bounds = dragging.rectHandle === "move" ? moveBounds(dragging.rectBounds, dragging.start, point, width, height) : resizeBounds(dragging.rectBounds, dragging.rectHandle, point, width, height);
+                // 不调 redrawOverlay：此时它的闭包还是旧 manualElements，重绘交给 manualElements 变更 effect
+                setManualElements((elements) => elements.map((element) => element.id === dragging.rectId ? { ...element, bbox: { x: bounds.x / width, y: bounds.y / height, width: bounds.width / width, height: bounds.height / height } } : element));
+                updateRectCursor(event.currentTarget, point);
+                return;
+            }
+            const bounds = { x: Math.min(dragging.start.x, point.x) / width, y: Math.min(dragging.start.y, point.y) / height, width: Math.abs(dragging.start.x - point.x) / width, height: Math.abs(dragging.start.y - point.y) / height };
+            if (bounds.width < 0.03 || bounds.height < 0.03) {
+                setLayerBoxError("画框太小，请在画布上拖出更大的选区。");
+                scheduleRender();
+                return;
+            }
+            if (manualElements.length >= maxLayerElements) {
+                setLayerBoxError(`已达到当前分割模型的元素上限（${maxLayerElements} 个），请先删除部分元素。`);
+                scheduleRender();
+                return;
+            }
+            setLayerBoxError(null);
+            const elementId = randomUuid();
+            // 新画框默认勾选：LayersPanel 按元素集合变化自动勾选新增元素
+            setManualElements((elements) => [...elements, { id: elementId, name: `自定义元素 ${elements.length + 1}`, bbox: bounds }]);
+            redrawOverlay();
+            return;
+        }
+        const current = interactionRef.current;
+        if (!current.start)
+            return;
+        const point = pointFor(event);
+        interactionRef.current = { start: null, last: null, erased: null, rectId: null, rectBounds: null, rectHandle: null };
+        previewRef.current = null;
+        let next = annotations;
+        let nextSelectedRectId = selectedRectId;
+        if (tool === "rect" && point) {
+            if (current.rectId && current.rectBounds && current.rectHandle) {
+                const width = overlayRef.current?.width ?? 0;
+                const height = overlayRef.current?.height ?? 0;
+                const bounds = current.rectHandle === "move" ? moveBounds(current.rectBounds, current.start, point, width, height) : resizeBounds(current.rectBounds, current.rectHandle, point, width, height);
+                next = annotations.map((annotation) => annotation.id === current.rectId ? { ...annotation, bounds } : annotation);
+                nextSelectedRectId = current.rectId;
+                setAnnotations(next);
+            }
+            else {
+                const bounds = { x: Math.min(current.start.x, point.x), y: Math.min(current.start.y, point.y), width: Math.abs(current.start.x - point.x), height: Math.abs(current.start.y - point.y) };
+                if (bounds.width > 2 && bounds.height > 2) {
+                    const id = randomUuid();
+                    next = [...annotations, { id, type: "rect", bounds, color: EDIT_OVERLAY_COLOR, semanticRole: "target" }];
+                    nextSelectedRectId = id;
+                    setSelectedRectId(id);
+                    setAnnotations(next);
+                }
+            }
+        }
+        if (tool === "arrow" && point) {
+            next = [...annotations, { id: randomUuid(), type: "arrow", points: [current.start, point], color: markColor, semanticRole: "instruction" }];
+            setAnnotations(next);
+        }
+        if (tool === "erase" && current.erased) {
+            next = annotations.filter((annotation) => annotation.type !== "rect" || !annotation.bounds || !intersects(annotation.bounds as Bounds, current.erased!));
+            if (!next.some((annotation) => annotation.id === nextSelectedRectId))
+                nextSelectedRectId = null;
+            setSelectedRectId(nextSelectedRectId);
+            setAnnotations(next);
+        }
+        redrawOverlay(next, nextSelectedRectId);
+        pushHistory(next);
+        if (point)
+            updateRectCursor(event.currentTarget, point);
+        event.currentTarget.releasePointerCapture(event.pointerId);
+    };
+    const pointerLeave = (event: ReactPointerEvent<HTMLCanvasElement>) => { hoverRef.current = null; if (!interactionRef.current.last) {
+        event.currentTarget.style.cursor = "";
+        scheduleRender();
+    } };
+    const ensureSession = async () => {
+        if (!sessionId) throw new Error('请先重新读取编辑会话');
+        return sessionId;
+    };
+    const selectVersion = async (versionId: string) => {
+        if (!session || !activeOutput || versionId === activeOutput.id)
+            return;
+        const updated = await invoke("selectEditSessionOutput", { sessionId: session.id, outputId: versionId });
+        pendingAutoSelectRef.current = null;
+        setSession(current => ({ ...current, ...updated }));
+        onSelectOutput(versionId);
+    };
+    const saveMemory = async () => { if (!session || !activeOutput)
+        return; const constraints = memoryConstraints.split(/\r?\n/).map((value) => value.trim()).filter(Boolean); const updated = await invoke("updateEditSessionMemory", { sessionId: session.id, outputId: activeOutput.id, summary: memorySummary.trim(), constraints }); setSession((current) => current ? { ...current, ...updated } : updated); setMemorySourceOutputId(updated.memorySummary?.sourceOutputId); };
+    const canvasBlob = (canvas: HTMLCanvasElement | null) => new Promise<Blob | null>((resolve) => canvas ? canvas.toBlob(resolve, "image/png") : resolve(null));
+    const hasInk = (canvas: HTMLCanvasElement | null) => { if (!canvas)
+        return false; const pixels = canvas.getContext("2d")?.getImageData(0, 0, canvas.width, canvas.height).data; return Boolean(pixels?.some((_, index) => index % 4 === 3 && pixels[index] !== 0)); };
+    const submit = async () => {
+        if (!activeOutput || !message.trim() || submitLock.current || turn?.status === 'UNKNOWN' || turn?.status === 'PLANNING' || turn?.status === 'GENERATING')
+            return;
+        // 未确认文字先落入画布，下一次提交使用已提交的标注，避免状态闭包漏掉文字。
+        if (textDraft?.value.trim()) { commitText(); return; }
+        submitLock.current = true;
+        setSubmitting(true);
+        const generation = sessionGenerationRef.current;
+        const submittedInput = inputFingerprint;
+        const feedbackKey = randomUuid();
+        setFeedback(current => [...current.filter(item => !(item.baseOutputId === activeOutput.id && !item.turnId)), { key: feedbackKey, baseOutputId: activeOutput.id, status: 'SUBMITTING', inputFingerprint: submittedInput }]);
+        try {
+            const currentEditMask = editMaskForSubmit();
+            const [editMask, protectMask, id] = await Promise.all([hasInk(currentEditMask) ? canvasBlob(currentEditMask) : null, hasInk(protectMaskRef.current) ? canvasBlob(protectMaskRef.current) : null, ensureSession()]);
+            if (generation !== sessionGenerationRef.current) { setFeedback(current => current.filter(item => item.key !== feedbackKey)); return; }
+            // 方案必须读取当前输入的分支记忆；否则屏幕上的要求与后台冻结内容会分离。
+            const constraints = memoryConstraints.split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+            if (session && (memorySummary.trim() !== (session.memorySummary?.summary ?? '') || JSON.stringify(constraints) !== JSON.stringify(session.memorySummary?.constraints ?? []))) {
+                await invoke('updateEditSessionMemory', { sessionId: id, outputId: activeOutput.id, summary: memorySummary.trim(), constraints });
+                if (generation !== sessionGenerationRef.current) { setFeedback(current => current.filter(item => item.key !== feedbackKey)); return; }
+            }
+            const sourceWidth = editMaskRef.current?.width ?? 0;
+            const sourceHeight = editMaskRef.current?.height ?? 0;
+            const canvasExpansion = Object.values(outpaintEdges).some((value) => value > 0) ? outpaintEdges : undefined;
+            const generationConfig = project && reasoningModel && imageModel ? { reasoningProviderId: reasoningModel.split("::")[0], reasoningModelId: reasoningModel.split("::")[1], imageProviderId: imageModel.split("::")[0], imageModelId: imageModel.split("::")[1], imageResolution, candidateCount } : undefined;
+            const result = await invoke('createEditTurn', {
+                sessionId: id, baseOutputId: activeOutput.id, message: message.trim(),
+                annotations: JSON.stringify({ sourceWidth, sourceHeight, annotations, canvasExpansion, ...(generationConfig ? { generationConfig } : {}) }),
+                referenceSelections: JSON.stringify(referenceSelections),
+                editMask: editMask ? await pngInput(editMask, 'edit-mask.png') : undefined,
+                protectMask: protectMask ? await pngInput(protectMask, 'protect-mask.png') : undefined,
+            });
+            setFeedback(current => current.map(item => item.key === feedbackKey ? { ...item, turnId: result.turnId, status: result.status } : item));
+            if (generation !== sessionGenerationRef.current) return;
+            setPlannedInput(submittedInput);
+            setRecoveredPlan(false);
+            setTurn({ id: result.turnId, status: result.status, plan: null, error: null });
+        }
+        catch (error) {
+            setFeedback(current => current.map(item => item.key === feedbackKey ? { ...item, status: 'FAILED', error: editErrorLabel(errorText(error)) } : item));
+            if (generation === sessionGenerationRef.current) setTurn({ id: "", status: "FAILED", plan: null, error: { message: errorText(error) } });
+        }
+        finally { submitLock.current = false; setSubmitting(false); }
+    };
+    const refreshSession = async (id: string, autoSelect = false) => { const generation = sessionGenerationRef.current; const value = await invoke("getEditSession", { sessionId: id }); if (generation !== sessionGenerationRef.current) return; if (autoSelect)
+        pendingAutoSelectRef.current = value.currentOutputId; setSession(value); setFeedback(current => current.filter(item => !item.turnId || item.status === 'APPROVING' || !(value.turns ?? []).some(saved => saved.id === item.turnId))); setMemorySummary(value.memorySummary?.summary ?? ""); setMemoryConstraints((value.memorySummary?.constraints ?? []).join("\n")); setMemorySourceOutputId(value.memorySummary?.sourceOutputId); };
+    const refreshTurn = async (id: string) => { const generation = sessionGenerationRef.current; const value = await invoke("getEditTurn", { turnId: id }); if (generation !== sessionGenerationRef.current) return; setTurn(value); setFeedback(current => current.map(item => item.turnId === id ? { ...item, status: value.status, error: feedbackError(value.error?.code ?? value.error?.message) } : item)); setSession(current => current ? { ...current, turns: current.turns?.map(item => item.id === id ? { ...item, ...value } : item) } : current); if (value.status === "NEED_INPUT" && value.error?.code === "REFERENCE_ASSET_REQUIRED")
+        setReferencePickerOpen(true); if (value.status === "SUCCEEDED" && sessionId)
+        void refreshSession(sessionId, true).catch(error => antdMessage.error(errorText(error))); };
+    useEffect(() => {
+        // 回到基图时会话查询可能早于提交回执；绑定回执后重新读取轮次以恢复轮询。
+        if (!sessionId || turn || !activeOutput || sessionReadyKeyRef.current !== `${projectId}:${activeOutput.id}`) return;
+        const pendingFeedback = feedback.find(item => item.baseOutputId === activeOutput.id && item.turnId && !['FAILED', 'SUCCEEDED', 'CANCELLED'].includes(item.status));
+        if (!pendingFeedback?.turnId) return;
+        setPlannedInput(pendingFeedback.inputFingerprint ?? null);
+        void refreshTurn(pendingFeedback.turnId).catch(error => antdMessage.error(errorText(error)));
+    }, [sessionId, turn, activeOutput?.id, feedback]);
+    useEffect(() => {
+        const reload = () => {
+            if (sessionId) void refreshSession(sessionId).catch(error => antdMessage.error(errorText(error)));
+            if (turn?.id) void refreshTurn(turn.id).catch(error => antdMessage.error(errorText(error)));
+        };
+        window.addEventListener('pixelmuse:job-resolution', reload);
+        return () => window.removeEventListener('pixelmuse:job-resolution', reload);
+    }, [sessionId, turn?.id]);
+    const approve = async () => {
+        if (!turn?.id || !awaitingConfirmation || plannedInput !== latestInputRef.current || submitLock.current) return;
+        submitLock.current = true;
+        setSubmitting(true);
+        const generation = sessionGenerationRef.current;
+        const turnId = turn.id;
+        const baseOutputId = activeOutput!.id;
+        setFeedback(current => [...current.filter(item => item.turnId !== turnId), { key: turnId, turnId, baseOutputId, status: 'APPROVING' }]);
+        try {
+            const result = await invoke("approveEditTurn", { turnId });
+            setFeedback(current => current.map(item => item.turnId === turnId ? { ...item, status: result.turn.status, error: feedbackError(result.turn.error?.code ?? result.turn.error?.message) } : item));
+            if (generation === sessionGenerationRef.current) setTurn(result.turn);
+        } catch (error) {
+            setFeedback(current => current.map(item => item.turnId === turnId ? { ...item, status: 'FAILED', error: editErrorLabel(errorText(error)) } : item));
+            throw error;
+        } finally { submitLock.current = false; setSubmitting(false); }
+    };
+    const clearMarks = () => { const edit = editMaskRef.current; const protect = protectMaskRef.current; if (!edit || !protect)
+        return; edit.getContext("2d")?.clearRect(0, 0, edit.width, edit.height); protect.getContext("2d")?.clearRect(0, 0, protect.width, protect.height); setSelectedRectId(null); setAnnotations([]); redrawOverlay([], null); pushHistory([]); };
+    const pending = turn?.status === 'PLANNING' || turn?.status === 'GENERATING';
+    const outcomeUnknown = turn?.status === 'UNKNOWN';
+    const setOutpaintEdge = (edge: keyof typeof outpaintEdges, value: number | null) => setOutpaintEdges((current) => ({ ...current, [edge]: Math.max(0, Math.round(value ?? 0)) }));
+    const changeZoom = (delta: number) => setZoom((current) => Math.min(4, Math.max(0.25, Math.round((current + delta) * 20) / 20)));
+    const handleCanvasWheel = (event: React.WheelEvent<HTMLDivElement>) => { if (!event.ctrlKey && !event.metaKey)
+        return; event.preventDefault(); changeZoom(event.deltaY > 0 ? -0.1 : 0.1); };
+    // 分层模式只保留有效工具：移动画布与拖拽画框；编辑类工具（涂抹/保护/箭头/文字）不混入
+    const tools: Array<{
+        id: Tool;
+        label: string;
+        icon: ReactNode;
+    }> = layersOpen
+        ? [{ id: "pan", label: "移动画布", icon: <Hand size={18}/> }, { id: "rect", label: "拖拽画框添加元素", icon: <SquareDashedMousePointer size={18}/> }]
+        : [{ id: "pan", label: "移动画布", icon: <Hand size={18}/> }, { id: "rect", label: "框选可编辑区域", icon: <SquareDashedMousePointer size={18}/> }, { id: "brush", label: "涂抹可编辑区域", icon: <Brush size={18}/> }, { id: "erase", label: "擦除标记", icon: <Eraser size={18}/> }, { id: "protect", label: "保护区域", icon: <Shield size={18}/> }, { id: "arrow", label: "箭头标注", icon: <ArrowUpRight size={18}/> }, { id: "text", label: "文字标注", icon: <Type size={18}/> }];
+    const sessionOutputs = (session?.versions ?? []).map((version) => outputs.find((item) => item.id === version.id)).filter((item): item is Output => Boolean(item));
+    const versionFeedback = new Map<string, VersionFeedback>();
+    for (const saved of session?.turns ?? []) {
+        if (saved.baseOutputId === activeOutput?.id) versionFeedback.set(saved.id, { key: saved.id, turnId: saved.id, baseOutputId: saved.baseOutputId, status: saved.status, error: feedbackError(saved.error?.code ?? saved.error?.message) });
+    }
+    for (const item of feedback) if (item.baseOutputId === activeOutput?.id) versionFeedback.set(item.turnId ?? item.key, item);
+    if (turn?.id && versionFeedback.has(turn.id) && !feedback.some(item => item.turnId === turn.id && item.status === 'FAILED' && turn.status !== 'FAILED')) {
+        const item = versionFeedback.get(turn.id)!;
+        if (item.status !== 'APPROVING') versionFeedback.set(turn.id, { ...item, status: turn.status, error: feedbackError(turn.error?.code ?? turn.error?.message) });
+    }
+    const visibleFeedback = [...versionFeedback.values()].filter(item => !['SUCCEEDED', 'CANCELLED', 'DRAFT'].includes(item.status));
+    const versionLabel = (version: Output) => {
+        const byId = new Map(outputs.map((item) => [item.id, item]));
+        let depth = 0;
+        let parentId = version.parentOutputId;
+        while (parentId && byId.has(parentId)) {
+            depth += 1;
+            parentId = byId.get(parentId)?.parentOutputId ?? null;
+        }
+        if (depth === 0)
+            return "原图";
+        const siblings = outputs.filter((candidate) => candidate.parentOutputId === version.parentOutputId).sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+        const ordinal = siblings.findIndex((candidate) => candidate.id === version.id) + 1;
+        return `V${depth + 1}${siblings.length > 1 ? ` · ${ordinal}` : ""}`;
+    };
+    const compareOutput = compareOutputId ? outputs.find((item) => item.id === compareOutputId) : undefined;
+    const providerItems = (providers.data?.items ?? []) as Array<{
+        id: string;
+        name: string;
+        models: Array<{
+            id: string;
+            supportsVision: boolean;
+            imageApiKind?: string | null;
+            segmentationProtocol?: string | null;
+        }>;
+    }>;
+    const reasoningOptions = modelOptions(providerItems, "reasoning");
+    const imageOptions = modelOptions(providerItems, "image");
+    const segmentationOptions = segmentationModelOptions(providerItems);
+    const segmentationKey = project?.segmentationModel ? `${project.segmentationModel.providerId}::${project.segmentationModel.modelId}` : "";
+    const maxLayerElements = layerElementLimit(segmentationOptions, segmentationKey);
+    const changeSegmentationKey = (value: string) => {
+        const [providerId, modelId] = value.split("::");
+        if (!providerId || !modelId)
+            return;
+        // protocol 由 Provider 声明派生，前端只提交引用
+        void updateProject.mutateAsync({ segmentationModel: { providerId, modelId } })
+            .catch((cause) => notification.error({ title: "保存分割模型失败", description: errorText(cause) }));
+    };
+    // 编辑器可能从版本关系画布、灯箱等已打开的弹窗中唤起；antd 弹窗默认同为 1000，按 portal 先后压层，这里显式置顶（tokens.css 的 z 尺度只约束应用层 CSS，不含 antd 弹层）
+    return <Modal open={Boolean(output) && businessActive} onCancel={onClose} footer={null} width="calc(100vw - 32px)" style={{ top: 16 }} className={`${styles.editModal} ${editorStyles.modal}`} title={<div className={editorStyles.heading}><Button onClick={onClose}>返回成图</Button><strong>修改图片</strong><span>当前基图：{activeOutput ? versionLabel(activeOutput) : '原图'}</span>{activeOutput ? <Button onClick={() => void downloadOriginal(outputPreviewUrl(activeOutput), outputFileName(activeOutput, '编辑图片')).catch(error => antdMessage.error(errorText(error)))}>下载</Button> : null}</div>} zIndex={1100}>
+    {activeOutput ? <><div className={editorStyles.status} role="status">{pending || submitting ? '修改任务进行中' : awaitingConfirmation ? planChanged ? '输入已更改 · 请重新规划修改' : '修改方案已就绪 · 等待确认' : outcomeUnknown ? '任务已中断' : turn?.status === 'SUCCEEDED' ? '新版本已生成 · 原图保留' : '选择区域并描述修改要求'}</div><div className={`${styles.editWorkspace} ${editorStyles.workspace}`}>
+      <aside className={styles.editToolbar} aria-label="编辑工具">
+        {tools.map((entry) => <Tooltip key={entry.id} title={entry.label}><button type="button" className={styles.editTool} data-active={tool === entry.id} onClick={() => { commitText(); setTool(entry.id); }} aria-label={entry.label}>{entry.icon}</button></Tooltip>)}
+        {!layersOpen ? <>
+          <span className={styles.editDivider}/>
+          <Tooltip title="撤销"><button type="button" className={styles.editTool} disabled={historyIndex <= 0} onClick={() => restoreHistory(historyIndex - 1)}><Undo2 size={18}/></button></Tooltip><Tooltip title="重做"><button type="button" className={styles.editTool} disabled={historyIndex >= history.length - 1} onClick={() => restoreHistory(historyIndex + 1)}><Redo2 size={18}/></button></Tooltip><Tooltip title="清除标记"><button type="button" className={styles.editTool} onClick={clearMarks}><RotateCcw size={18}/></button></Tooltip>
+        </> : null}
+        <span className={styles.editDivider}/>
+        <Tooltip title="缩小"><button type="button" className={styles.editTool} disabled={zoom <= 0.25} onClick={() => changeZoom(-0.25)} aria-label="缩小"><ZoomOut size={18}/></button></Tooltip><Tooltip title="放大"><button type="button" className={styles.editTool} disabled={zoom >= 4} onClick={() => changeZoom(0.25)} aria-label="放大"><ZoomIn size={18}/></button></Tooltip><Tooltip title="恢复 100% 并居中"><button type="button" className={styles.editTool} data-active={zoom !== 1 || panOffset.x !== 0 || panOffset.y !== 0} onClick={() => { setZoom(1); setPanOffset({ x: 0, y: 0 }); }} aria-label="恢复 100% 并居中"><Scan size={18}/></button></Tooltip>
+        <span className={styles.editDivider}/>
+        <Tooltip title="AI 分层导出"><button type="button" className={styles.editTool} data-active={layersOpen} onClick={() => { commitText(); setLayersOpen((current) => { const next = !current; if (next)
+            setLayersEverOpened(true); return next; }); setLayerHover(null); }} aria-label="AI 分层导出"><Layers3 size={18}/></button></Tooltip>
+      </aside>
+      <section className={`${styles.editCanvasArea} ${editorStyles.canvasArea}`}>
+        <div className={editorStyles.legend}>蓝色：可修改区域 · 橙色：保护区域</div>
+        <div className={styles.editCanvasFrame} style={{ transform: `translate3d(${panOffset.x}px, ${panOffset.y}px, 0) scale(${zoom})` }} onWheel={handleCanvasWheel}>
+          <img ref={imageRef} src={activeOutput.url} alt="待编辑图片" onLoad={initializeCanvas}/>
+          <canvas ref={overlayRef} className={styles.editCanvas} style={{ opacity: showOverlay ? 1 : 0 }} data-tool={layersOpen ? "layerbox" : tool} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerLeave={pointerLeave} onClick={placeText}/>
+          {textDraft ? <input ref={textInputRef} autoFocus className={styles.editInlineText} style={{ left: `${(textDraft.point.x / (overlayRef.current?.width || 1)) * 100}%`, top: `${(textDraft.point.y / (overlayRef.current?.height || 1)) * 100}%`, color: markColor, fontSize: `${Math.max(14, textSize * ((overlayRef.current?.clientWidth || 1) / (overlayRef.current?.width || 1)))}px` }} value={textDraft.value} onChange={(event) => setTextDraft((current) => current ? { ...current, value: event.target.value } : current)} onBlur={commitText} onPointerDown={(event) => event.stopPropagation()} onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+            event.preventDefault();
+            commitText();
+        } if (event.key === "Escape")
+            setTextDraft(null); }} placeholder="输入文字，Enter 确认" aria-label="输入文字标注"/> : null}
+        </div>
+        <div className={editorStyles.canvasControls}><Button size="small" onClick={() => { setZoom(1); setPanOffset({ x: 0, y: 0 }); }}>适应画布</Button><Button size="small" onClick={() => changeZoom(-0.25)}>−</Button><span>{Math.round(zoom * 100)}%</span><Button size="small" onClick={() => changeZoom(0.25)}>+</Button><label><input type="checkbox" checked={showOverlay} onChange={event => setShowOverlay(event.target.checked)}/> 显示蒙版</label></div>
+      </section>
+      <section className={editorStyles.versions} aria-label="版本历史"><strong>版本</strong>{(sessionOutputs.length ? sessionOutputs : [activeOutput]).map(version => <div key={version.id}><button type="button" data-current={version.id === activeOutput.id} onClick={() => void selectVersion(version.id).catch(error => antdMessage.error(errorText(error)))}><img src={outputThumbnailUrl(version) ?? outputPreviewUrl(version)} alt={versionLabel(version)}/><span>{versionLabel(version)}</span></button>{version.id !== activeOutput.id ? <button type="button" onClick={() => setCompareOutputId(compareOutputId === version.id ? null : version.id)}>{compareOutputId === version.id ? '取消对比' : '对比当前'}</button> : null}</div>)}{visibleFeedback.map(item => { const failed = item.status === 'FAILED'; const waiting = item.status === 'NEED_INPUT' ? '需要补充' : item.status === 'AWAITING_CONFIRMATION' || item.status === 'PLAN_READY' ? '等待确认' : item.status === 'UNKNOWN' ? '任务中断' : item.status === 'PLANNING' || item.status === 'SUBMITTING' ? '正在规划' : '正在生成'; const label = failed ? `生成失败：${item.error ?? '请查看任务状态或重新生成计划。'}` : waiting; return <div key={item.turnId ?? item.key} className={editorStyles.feedback} title={label} aria-label={label}><div className={`${editorStyles.feedbackThumbnail} ${failed ? editorStyles.failedThumbnail : ''}`}>{failed ? <span className={editorStyles.failureIcon} aria-hidden="true">!</span> : item.status === 'NEED_INPUT' || item.status === 'AWAITING_CONFIRMATION' || item.status === 'PLAN_READY' || item.status === 'UNKNOWN' ? <span aria-hidden="true">…</span> : <span className={editorStyles.spinner} aria-hidden="true"/>}</div><span>{failed ? '生成失败' : waiting}</span></div>; })}<small>新结果会保留为独立版本</small></section>
+      <aside className={`${styles.editAgentPanel} ${editorStyles.panel}`}>
+        {layersEverOpened ? <div style={{ display: layersOpen ? "contents" : "none" }}><LayersPanel outputId={activeOutput.id} outputUrl={activeOutput.url} manualElements={manualElements} boxError={layerBoxError} maxElements={maxLayerElements} segmentationKey={segmentationKey} segmentationOptions={segmentationOptions} onSegmentationKeyChange={changeSegmentationKey} onRenameManual={(id, name) => setManualElements((current) => current.map((element) => element.id === id ? { ...element, name } : element))} onRemoveManual={(id) => { setManualElements((current) => current.filter((element) => element.id !== id)); setLayerHover(null); }} onHover={setLayerHover} onExit={() => { setLayersOpen(false); setLayerHover(null); setLayerBoxError(null); }}/></div> : null}
+        <div style={{ display: layersOpen ? "none" : "contents" }}>
+        <div><h2>修改这张图片</h2></div>
+        {sessionError ? <div role="alert">编辑会话读取失败：{sessionError} <Button onClick={() => setSessionRetry(value => value + 1)}>重新读取</Button></div> : !sessionId ? <p role="status">正在读取编辑会话…</p> : null}
+        <label className={editorStyles.requirement}>修改要求<Input.TextArea value={message} onChange={(event) => setMessage(event.target.value)} autoSize={{ minRows: 4, maxRows: 8 }} placeholder="例如：把选中的菠萝颜色调得更金黄，保留叶片和背景光线" disabled={!sessionId || pending || submitting}/></label>
+        <div className={editorStyles.quickActions}><Button onClick={() => setReferencePickerOpen(true)}>添加参考图</Button><Button onClick={clearMarks}>清除选区</Button></div>
+        {project ? <div className={styles.editGenerationSettings}>
+          <button type="button" className={styles.editSettingsToggle} aria-expanded={settingsOpen} onClick={() => setSettingsOpen((current) => !current)}><Settings2 size={15}/><span>本次生成设置</span><small>项目默认</small><ChevronDown size={15}/></button>
+          {settingsOpen ? <div className={styles.editSettingsBody}>
+            <ManageModelsButton/>
+            <label>推理模型<select aria-label="推理模型" value={reasoningModel} onChange={(event) => setReasoningModel(event.target.value)}><option value="">项目默认</option>{reasoningOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+            <label>生图模型<select aria-label="生图模型" value={imageModel} onChange={(event) => setImageModel(event.target.value)}><option value="">项目默认</option>{imageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+            <div className={styles.editSettingsGrid}>
+              <label>分辨率<select aria-label="分辨率" value={imageResolution} onChange={(event) => setImageResolution(event.target.value as EditProjectDefaults["imageResolution"])}><option value="1K">1K</option><option value="2K">2K</option><option value="4K">4K</option></select></label>
+              <label>出图数<input aria-label="出图数" type="number" min={1} max={4} value={candidateCount} onChange={(event) => setCandidateCount(Math.min(4, Math.max(1, Number(event.target.value) || 1)))}/></label>
+            </div>
+          </div> : null}
+        </div> : null}
+        <div className={styles.editOutpaint}><p>扩展画布 <span>输入新增像素</span></p><div className={styles.editOutpaintInputs}><label>上<InputNumber min={0} max={4096} value={outpaintEdges.top} onChange={(value) => setOutpaintEdge("top", value)}/></label><label>右<InputNumber min={0} max={4096} value={outpaintEdges.right} onChange={(value) => setOutpaintEdge("right", value)}/></label><label>下<InputNumber min={0} max={4096} value={outpaintEdges.bottom} onChange={(value) => setOutpaintEdge("bottom", value)}/></label><label>左<InputNumber min={0} max={4096} value={outpaintEdges.left} onChange={(value) => setOutpaintEdge("left", value)}/></label></div>{Object.values(outpaintEdges).some((value) => value > 0) ? <small>生成后画布约为 {((editMaskRef.current?.width ?? 0) + outpaintEdges.left + outpaintEdges.right)} × {((editMaskRef.current?.height ?? 0) + outpaintEdges.top + outpaintEdges.bottom)} px</small> : null}</div>
+        {["arrow", "text"].includes(tool) ? <label className={styles.editColorPicker}><span>{tool === "text" ? "文字颜色" : "标注颜色"}</span><div>{MARK_COLORS.map((color) => <button key={color} type="button" aria-label={`使用 ${color} 标注`} data-active={markColor === color} style={{ backgroundColor: color }} onClick={() => setMarkColor(color)}/>)}</div></label> : null}
+        {(tool === "brush" || tool === "erase" || tool === "protect") ? <label className={styles.editBrushSize}>笔刷大小<input type="range" min="12" max="160" value={brushSize} onChange={(event) => setBrushSize(Number(event.target.value))}/></label> : null}
+        {tool === "text" ? <><label className={styles.editTextSize}>字号<InputNumber min={16} max={96} value={textSize} onChange={(value) => setTextSize(typeof value === "number" ? value : 32)}/></label><p className={styles.editTextHint}>{textDraft ? "正在编辑画布上的文字，Enter 确认" : "点击图片放置文字"}</p></> : null}
+        {compareOutput && compareOutput.id !== activeOutput.id ? <div className={styles.editCompare}><div><img src={activeOutput.url} alt="当前版本"/><span>当前</span></div><div><img src={compareOutput.url} alt="对比版本"/><span>对比</span></div></div> : null}
+        <div className={styles.editReferences}>
+          <div className={styles.editReferencesHeader}><span>参考素材</span><button type="button" onClick={() => setReferencePickerOpen(true)}>{referenceSelections.length ? `已选 ${referenceSelections.length}` : "选择"}</button></div>
+          <div className={styles.editReferenceStrip}>{referenceSelections.slice(0, 3).map((selection) => { const asset = referenceAssets.find((item) => item.id === selection.id && item.source === selection.source); return asset ? <Tooltip key={`${selection.source}:${selection.id}`} title={asset.originalName}><div className={styles.editReferenceChip}><img src={asset.url} alt=""/><span>{PURPOSE_OPTIONS.find((item) => item.value === selection.purpose)?.label}</span><button type="button" aria-label="移除参考素材" onClick={() => void removeReference(asset).catch(error => antdMessage.error(errorText(error)))}><X size={11}/></button></div></Tooltip> : null; })}{referenceSelections.length > 3 ? <span className={styles.editReferenceMore}>+{referenceSelections.length - 3}</span> : null}{referenceSelections.length === 0 ? <small>未选择</small> : null}</div>
+          {suggestedReferenceSelections.length > 0 && referenceSelections.length === 0 ? <button type="button" className={styles.editReferenceReuse} onClick={() => { setReferenceSelections(suggestedReferenceSelections); setReferencePickerOpen(true); }}>沿用上次</button> : null}
+          <Popover open={referencePickerOpen && businessActive} onOpenChange={setReferencePickerOpen} trigger="click" placement="leftTop" content={<div data-testid="reference-drop-zone" aria-label="拖入参考图片" className={`${styles.referencePopover} ${referenceDragActive ? styles.referencePopoverDragActive : ""}`} onDragEnter={(event) => { event.preventDefault(); setReferenceDragActive(true); }} onDragOver={(event) => event.preventDefault()} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node))
+                setReferenceDragActive(false); }} onDrop={(event) => { event.preventDefault(); setReferenceDragActive(false); void uploadReferenceFiles([...event.dataTransfer.files]); }}>
+            <div className={styles.referencePopoverHeading}><strong>参考素材</strong><span>已选 {referenceSelections.length} 张</span></div>
+            <div className={styles.referenceTabs}><button type="button" data-active={referenceTab === "PROJECT"} onClick={() => setReferenceTab("PROJECT")}>项目素材</button><button type="button" data-active={referenceTab === "TEMPORARY"} onClick={() => setReferenceTab("TEMPORARY")}>本次上传</button></div>
+            <div className={styles.referenceList}>{referenceLoading ? <div className={styles.referenceLoading}>加载中</div> : referenceAssets.filter((asset) => asset.source === referenceTab).map((asset) => { const selection = referenceSelections.find((item) => item.id === asset.id && item.source === asset.source); return <div key={`${asset.source}:${asset.id}`} className={styles.referenceRow}><button type="button" className={styles.referencePick} data-selected={Boolean(selection)} onClick={() => toggleReference(asset)}><img src={asset.url} alt=""/><span title={asset.originalName}>{asset.originalName}</span>{selection ? <Check size={14}/> : null}</button>{selection ? <Select size="small" value={selection.purpose} options={PURPOSE_OPTIONS} onChange={(value) => updateReferencePurpose(asset, value)}/> : null}{asset.source === "TEMPORARY" ? <div className={styles.referenceRowActions}><button type="button" onClick={() => void promoteReference(asset).catch(error => antdMessage.error(errorText(error)))} title="存入项目">存</button><button type="button" onClick={() => void removeReference(asset).catch(error => antdMessage.error(errorText(error)))} aria-label="删除临时素材"><X size={14}/></button></div> : null}</div>; })}</div>
+            <div className={styles.referencePopoverActions}><input ref={referenceFileRef} type="file" accept="image/*" multiple hidden onChange={(event) => { const files = [...(event.target.files ?? [])]; event.target.value = ""; void uploadReferenceFiles(files); }}/>{referenceUploading ? <Button size="small" danger icon={<X size={13}/>} onClick={() => { uploadCancelledRef.current = true; uploadControllerRef.current?.abort(); }}>取消上传</Button> : <Button size="small" icon={<Upload size={13}/>} onClick={() => referenceFileRef.current?.click()}>上传图片</Button>}<Button size="small" type="primary" onClick={() => setReferencePickerOpen(false)}>完成</Button></div>
+          </div>}><span className={styles.referencePopoverAnchor} aria-hidden="true"/></Popover>
+        </div>
+        {session ? <div className={styles.editMemory}><div className={styles.editMemoryHeading}><p>当前分支记忆</p><small>{memorySourceOutputId && memorySourceOutputId !== activeOutput?.id ? `继承自 ${versionLabel(outputs.find((item) => item.id === memorySourceOutputId) ?? activeOutput)}` : memorySourceOutputId ? "本节点记忆" : "未设置"}</small></div><Input.TextArea value={memorySummary} onChange={(event) => setMemorySummary(event.target.value)} autoSize={{ minRows: 2, maxRows: 4 }} placeholder="例如：保持晨光方向和木质台面"/><Input.TextArea value={memoryConstraints} onChange={(event) => setMemoryConstraints(event.target.value)} autoSize={{ minRows: 2, maxRows: 4 }} placeholder="每行一条约束，例如：不要改变叶片形状"/><Button size="small" onClick={() => void saveMemory().catch(error => antdMessage.error(errorText(error)))}>保存记忆</Button></div> : null}
+        {turn?.plan?.userSummary ? <div className={styles.editPlan}><p>{turn.plan.userSummary}</p><span>{editOperationLabel(turn.plan.operation)}</span>{turn.plan.executionMode ? <small>执行方式：{editExecutionModeLabel(turn.plan.executionMode)}</small> : null}{turn.plan.targetDescription ? <small>目标：{turn.plan.targetDescription}{typeof turn.plan.targetConfidence === "number" ? ` · 置信度 ${Math.round(turn.plan.targetConfidence * 100)}%` : ""}</small> : null}{editOperationImpactHint(turn.plan.operation) ? <small>影响范围：{editOperationImpactHint(turn.plan.operation)}</small> : null}</div> : null}
+        {outcomeUnknown ? <p className={styles.editError}>任务已中断，可以重试或结束。</p> : null}
+        {turn?.recoveryJobId ? <div style={{ display: 'flex', gap: 8 }}><JobRecovery jobId={turn.recoveryJobId} disabled={!businessActive} onResolved={async () => { if (sessionId) await refreshSession(sessionId); await refreshTurn(turn.id); }} /></div> : null}
+        {turn?.status === "NEED_INPUT" || turn?.status === "FAILED" ? <p className={styles.editError}>{turn.status === 'NEED_INPUT' && typeof turn.plan?.clarification === 'string' ? turn.plan.clarification : editErrorLabel(typeof turn.error?.message === 'string' ? turn.error.message : undefined)}</p> : null}{turn?.status === "SUCCEEDED" ? <p className={styles.editSuccess}>新版本已生成，可关闭后继续在结果区编辑。</p> : null}
+        {awaitingConfirmation && planChanged ? <p className={styles.editError}>要求、选区、参考图或参数已更改，请重新规划修改。</p> : null}
+        {recoveredPlan ? <p className={styles.editHint}>已恢复当前基图的未结束轮次。确认将执行该轮次已保存的方案与蒙版；重新规划使用当前画布选区。</p> : null}
+        <div className={`${styles.editCommands} ${editorStyles.commands}`}><Button type={awaitingConfirmation ? 'default' : 'primary'} icon={<Send size={15}/>} disabled={!sessionId || !message.trim() || pending || outcomeUnknown || submitting} loading={pending || submitting} onClick={() => void submit()}>{awaitingConfirmation ? '重新规划修改' : '生成计划'}</Button>{awaitingConfirmation ? <Button type="primary" disabled={planChanged || submitting} loading={submitting} onClick={() => void approve().catch(error => antdMessage.error(errorText(error)))}>确认修改</Button> : null}</div>
+        <p className={styles.editHint}>生成独立新版本，原图保留。生成后可比较并选择采用。</p>
+        </div>
+      </aside>
+    </div></> : null}
+  </Modal>;
+}
+function drawArrow(context: CanvasRenderingContext2D, from: Point, to: Point, color: string, width: number): void {
+    context.save();
+    context.strokeStyle = color;
+    context.fillStyle = color;
+    context.lineWidth = Math.max(3, width / 450);
+    context.beginPath();
+    context.moveTo(from.x, from.y);
+    context.lineTo(to.x, to.y);
+    context.stroke();
+    const angle = Math.atan2(to.y - from.y, to.x - from.x);
+    const head = Math.max(12, width / 40);
+    context.beginPath();
+    context.moveTo(to.x, to.y);
+    context.lineTo(to.x - head * Math.cos(angle - Math.PI / 6), to.y - head * Math.sin(angle - Math.PI / 6));
+    context.moveTo(to.x, to.y);
+    context.lineTo(to.x - head * Math.cos(angle + Math.PI / 6), to.y - head * Math.sin(angle + Math.PI / 6));
+    context.stroke();
+    context.restore();
+}

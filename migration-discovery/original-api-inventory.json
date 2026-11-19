@@ -1,0 +1,792 @@
+{
+  "source": "legacy/openapi.yaml",
+  "purpose": "Offline completeness reference only; never a production HTTP route map",
+  "operations": [
+    {
+      "operationId": "getHealth",
+      "method": "get",
+      "path": "/health",
+      "summary": null
+    },
+    {
+      "operationId": "listEcomDetailsImageTemplates",
+      "method": "get",
+      "path": "/ecom-templates",
+      "summary": null
+    },
+    {
+      "operationId": "listUserTemplates",
+      "method": "get",
+      "path": "/user-templates",
+      "summary": null
+    },
+    {
+      "operationId": "createUserTemplate",
+      "method": "post",
+      "path": "/user-templates",
+      "summary": null
+    },
+    {
+      "operationId": "updateUserTemplate",
+      "method": "patch",
+      "path": "/user-templates/{templateId}",
+      "summary": null
+    },
+    {
+      "operationId": "deleteUserTemplate",
+      "method": "delete",
+      "path": "/user-templates/{templateId}",
+      "summary": null
+    },
+    {
+      "operationId": "listSuites",
+      "method": "get",
+      "path": "/suites",
+      "summary": null
+    },
+    {
+      "operationId": "createUserSuite",
+      "method": "post",
+      "path": "/suites",
+      "summary": null
+    },
+    {
+      "operationId": "refreshSuites",
+      "method": "post",
+      "path": "/suites/refresh",
+      "summary": null
+    },
+    {
+      "operationId": "getSuite",
+      "method": "get",
+      "path": "/suites/{suiteId}",
+      "summary": null
+    },
+    {
+      "operationId": "updateUserSuite",
+      "method": "patch",
+      "path": "/suites/{suiteId}",
+      "summary": null
+    },
+    {
+      "operationId": "deleteUserSuite",
+      "method": "delete",
+      "path": "/suites/{suiteId}",
+      "summary": null
+    },
+    {
+      "operationId": "listSuiteCategories",
+      "method": "get",
+      "path": "/suite-categories",
+      "summary": null
+    },
+    {
+      "operationId": "listSuiteForgeJobResults",
+      "method": "get",
+      "path": "/suite-forge-jobs",
+      "summary": null
+    },
+    {
+      "operationId": "createSuiteForgeJob",
+      "method": "post",
+      "path": "/suite-forge-jobs",
+      "summary": null
+    },
+    {
+      "operationId": "getSuiteForgeResult",
+      "method": "get",
+      "path": "/suite-forge-jobs/{jobId}/result",
+      "summary": null
+    },
+    {
+      "operationId": "commitSuiteForgeResult",
+      "method": "post",
+      "path": "/suite-forge-jobs/{jobId}/commit",
+      "summary": null
+    },
+    {
+      "operationId": "listProviders",
+      "method": "get",
+      "path": "/providers",
+      "summary": null
+    },
+    {
+      "operationId": "createProvider",
+      "method": "post",
+      "path": "/providers",
+      "summary": null
+    },
+    {
+      "operationId": "discoverProviderModels",
+      "method": "post",
+      "path": "/providers/discover-models",
+      "summary": null
+    },
+    {
+      "operationId": "updateProvider",
+      "method": "patch",
+      "path": "/providers/{providerId}",
+      "summary": null
+    },
+    {
+      "operationId": "deleteProvider",
+      "method": "delete",
+      "path": "/providers/{providerId}",
+      "summary": null
+    },
+    {
+      "operationId": "testProviderConnection",
+      "method": "post",
+      "path": "/providers/{providerId}/test",
+      "summary": null
+    },
+    {
+      "operationId": "listSearchSources",
+      "method": "get",
+      "path": "/search-sources",
+      "summary": null
+    },
+    {
+      "operationId": "createSearchSource",
+      "method": "post",
+      "path": "/search-sources",
+      "summary": null
+    },
+    {
+      "operationId": "updateSearchSource",
+      "method": "patch",
+      "path": "/search-sources/{sourceId}",
+      "summary": null
+    },
+    {
+      "operationId": "deleteSearchSource",
+      "method": "delete",
+      "path": "/search-sources/{sourceId}",
+      "summary": null
+    },
+    {
+      "operationId": "listProjects",
+      "method": "get",
+      "path": "/projects",
+      "summary": null
+    },
+    {
+      "operationId": "createProject",
+      "method": "post",
+      "path": "/projects",
+      "summary": null
+    },
+    {
+      "operationId": "getProject",
+      "method": "get",
+      "path": "/projects/{projectId}",
+      "summary": null
+    },
+    {
+      "operationId": "updateProject",
+      "method": "patch",
+      "path": "/projects/{projectId}",
+      "summary": null
+    },
+    {
+      "operationId": "deleteProject",
+      "method": "delete",
+      "path": "/projects/{projectId}",
+      "summary": null
+    },
+    {
+      "operationId": "listAssets",
+      "method": "get",
+      "path": "/projects/{projectId}/assets",
+      "summary": null
+    },
+    {
+      "operationId": "uploadAsset",
+      "method": "post",
+      "path": "/projects/{projectId}/assets",
+      "summary": null
+    },
+    {
+      "operationId": "updateAsset",
+      "method": "patch",
+      "path": "/assets/{assetId}",
+      "summary": null
+    },
+    {
+      "operationId": "deleteAsset",
+      "method": "delete",
+      "path": "/assets/{assetId}",
+      "summary": null
+    },
+    {
+      "operationId": "listLibraryAssets",
+      "method": "get",
+      "path": "/library-assets",
+      "summary": null
+    },
+    {
+      "operationId": "copyLibraryAssetToProject",
+      "method": "post",
+      "path": "/projects/{projectId}/assets/from-library",
+      "summary": null
+    },
+    {
+      "operationId": "createPlanningJob",
+      "method": "post",
+      "path": "/projects/{projectId}/planning-jobs",
+      "summary": null
+    },
+    {
+      "operationId": "listPlanningConfigSnapshots",
+      "method": "get",
+      "path": "/projects/{projectId}/planning-config-snapshots",
+      "summary": null
+    },
+    {
+      "operationId": "applyPlanningConfigSnapshot",
+      "method": "post",
+      "path": "/projects/{projectId}/planning-config-snapshots/{snapshotId}/apply",
+      "summary": null
+    },
+    {
+      "operationId": "createCopywritingJob",
+      "method": "post",
+      "path": "/projects/{projectId}/copywriting-jobs",
+      "summary": null
+    },
+    {
+      "operationId": "getCopywritingResult",
+      "method": "get",
+      "path": "/copywriting-jobs/{jobId}/result",
+      "summary": null
+    },
+    {
+      "operationId": "getStoryboard",
+      "method": "get",
+      "path": "/projects/{projectId}/storyboard",
+      "summary": null
+    },
+    {
+      "operationId": "confirmStoryboard",
+      "method": "post",
+      "path": "/projects/{projectId}/storyboard/confirm",
+      "summary": null
+    },
+    {
+      "operationId": "updateStoryboardItem",
+      "method": "patch",
+      "path": "/storyboard-items/{itemId}",
+      "summary": null
+    },
+    {
+      "operationId": "deleteStoryboardItem",
+      "method": "delete",
+      "path": "/storyboard-items/{itemId}",
+      "summary": null
+    },
+    {
+      "operationId": "createGenerationJobs",
+      "method": "post",
+      "path": "/projects/{projectId}/generation-jobs",
+      "summary": null
+    },
+    {
+      "operationId": "createEditSession",
+      "method": "post",
+      "path": "/projects/{projectId}/outputs/{outputId}/edit-sessions",
+      "summary": null
+    },
+    {
+      "operationId": "getEditSession",
+      "method": "get",
+      "path": "/edit-sessions/{sessionId}",
+      "summary": null
+    },
+    {
+      "operationId": "updateEditSessionMemory",
+      "method": "patch",
+      "path": "/edit-sessions/{sessionId}/memory",
+      "summary": null
+    },
+    {
+      "operationId": "listEditReferenceAssets",
+      "method": "get",
+      "path": "/edit-sessions/{sessionId}/reference-assets",
+      "summary": null
+    },
+    {
+      "operationId": "uploadEditReferenceAsset",
+      "method": "post",
+      "path": "/edit-sessions/{sessionId}/reference-assets",
+      "summary": null
+    },
+    {
+      "operationId": "deleteEditReferenceAsset",
+      "method": "delete",
+      "path": "/edit-sessions/{sessionId}/reference-assets/{referenceAssetId}",
+      "summary": null
+    },
+    {
+      "operationId": "promoteEditReferenceAsset",
+      "method": "post",
+      "path": "/edit-sessions/{sessionId}/reference-assets/{referenceAssetId}/promote",
+      "summary": null
+    },
+    {
+      "operationId": "createEditTurn",
+      "method": "post",
+      "path": "/edit-sessions/{sessionId}/turns",
+      "summary": null
+    },
+    {
+      "operationId": "selectEditSessionOutput",
+      "method": "post",
+      "path": "/edit-sessions/{sessionId}/select-output",
+      "summary": null
+    },
+    {
+      "operationId": "getEditTurn",
+      "method": "get",
+      "path": "/edit-turns/{turnId}",
+      "summary": null
+    },
+    {
+      "operationId": "approveEditTurn",
+      "method": "post",
+      "path": "/edit-turns/{turnId}/approve",
+      "summary": null
+    },
+    {
+      "operationId": "getJob",
+      "method": "get",
+      "path": "/jobs/{jobId}",
+      "summary": null
+    },
+    {
+      "operationId": "cancelJob",
+      "method": "post",
+      "path": "/jobs/{jobId}/cancel",
+      "summary": null
+    },
+    {
+      "operationId": "retryJob",
+      "method": "post",
+      "path": "/jobs/{jobId}/retry",
+      "summary": null
+    },
+    {
+      "operationId": "getLayerPlan",
+      "method": "get",
+      "path": "/outputs/{outputId}/layer-plan",
+      "summary": null
+    },
+    {
+      "operationId": "createLayerPlan",
+      "method": "post",
+      "path": "/outputs/{outputId}/layer-plan",
+      "summary": null
+    },
+    {
+      "operationId": "getLayerExport",
+      "method": "get",
+      "path": "/outputs/{outputId}/layer-exports",
+      "summary": null
+    },
+    {
+      "operationId": "createLayerExport",
+      "method": "post",
+      "path": "/outputs/{outputId}/layer-exports",
+      "summary": null
+    },
+    {
+      "operationId": "listLayerExports",
+      "method": "get",
+      "path": "/outputs/{outputId}/layer-exports/history",
+      "summary": null
+    },
+    {
+      "operationId": "createExportJob",
+      "method": "post",
+      "path": "/projects/{projectId}/export-jobs",
+      "summary": null
+    },
+    {
+      "operationId": "getExport",
+      "method": "get",
+      "path": "/exports/{exportId}",
+      "summary": null
+    },
+    {
+      "operationId": "downloadThumbnail",
+      "method": "get",
+      "path": "/files/thumbnails/{hash}",
+      "summary": null
+    },
+    {
+      "operationId": "downloadAsset",
+      "method": "get",
+      "path": "/files/assets/{assetId}",
+      "summary": null
+    },
+    {
+      "operationId": "downloadOutput",
+      "method": "get",
+      "path": "/files/outputs/{outputId}",
+      "summary": null
+    },
+    {
+      "operationId": "downloadExport",
+      "method": "get",
+      "path": "/files/exports/{exportId}",
+      "summary": null
+    },
+    {
+      "operationId": "downloadLayerExport",
+      "method": "get",
+      "path": "/files/layer-exports/{layerExportId}",
+      "summary": null
+    },
+    {
+      "operationId": "downloadLayerExportLayer",
+      "method": "get",
+      "path": "/files/layer-exports/{layerExportId}/layers/{layerIndex}",
+      "summary": null
+    },
+    {
+      "operationId": "subscribeEvents",
+      "method": "get",
+      "path": "/events",
+      "summary": null
+    },
+    {
+      "operationId": "listModels",
+      "method": "get",
+      "path": "/models",
+      "summary": null
+    },
+    {
+      "operationId": "createModel",
+      "method": "post",
+      "path": "/models",
+      "summary": null
+    },
+    {
+      "operationId": "getModel",
+      "method": "get",
+      "path": "/models/{modelId}",
+      "summary": null
+    },
+    {
+      "operationId": "updateModel",
+      "method": "patch",
+      "path": "/models/{modelId}",
+      "summary": null
+    },
+    {
+      "operationId": "deleteModel",
+      "method": "delete",
+      "path": "/models/{modelId}",
+      "summary": null
+    },
+    {
+      "operationId": "uploadModelReferenceFace",
+      "method": "post",
+      "path": "/models/{modelId}/reference-face",
+      "summary": null
+    },
+    {
+      "operationId": "deleteModelReferenceFace",
+      "method": "delete",
+      "path": "/models/{modelId}/reference-face",
+      "summary": null
+    },
+    {
+      "operationId": "createModelCastJob",
+      "method": "post",
+      "path": "/models/{modelId}/cast-jobs",
+      "summary": null
+    },
+    {
+      "operationId": "listModelPortraits",
+      "method": "get",
+      "path": "/models/{modelId}/portraits",
+      "summary": null
+    },
+    {
+      "operationId": "deleteModelPortrait",
+      "method": "delete",
+      "path": "/model-portraits/{portraitId}",
+      "summary": null
+    },
+    {
+      "operationId": "selectModelPortrait",
+      "method": "post",
+      "path": "/model-portraits/{portraitId}/select",
+      "summary": null
+    },
+    {
+      "operationId": "listPatterns",
+      "method": "get",
+      "path": "/patterns",
+      "summary": null
+    },
+    {
+      "operationId": "noopPatternsPost",
+      "method": "post",
+      "path": "/patterns",
+      "summary": null
+    },
+    {
+      "operationId": "getPattern",
+      "method": "get",
+      "path": "/patterns/{patternId}",
+      "summary": null
+    },
+    {
+      "operationId": "updatePattern",
+      "method": "patch",
+      "path": "/patterns/{patternId}",
+      "summary": null
+    },
+    {
+      "operationId": "deletePattern",
+      "method": "delete",
+      "path": "/patterns/{patternId}",
+      "summary": null
+    },
+    {
+      "operationId": "createPatternExtractJob",
+      "method": "post",
+      "path": "/patterns/extract-jobs",
+      "summary": null
+    },
+    {
+      "operationId": "createPatternForgeJob",
+      "method": "post",
+      "path": "/patterns/forge-jobs",
+      "summary": null
+    },
+    {
+      "operationId": "createPrintPackJob",
+      "method": "post",
+      "path": "/patterns/{patternId}/print-pack-jobs",
+      "summary": null
+    },
+    {
+      "operationId": "createPatternDeriveJob",
+      "method": "post",
+      "path": "/patterns/{patternId}/derive-jobs",
+      "summary": null
+    },
+    {
+      "operationId": "createPatternVariantJob",
+      "method": "post",
+      "path": "/patterns/{patternId}/variant-jobs",
+      "summary": null
+    },
+    {
+      "operationId": "createPatternTileCheckJob",
+      "method": "post",
+      "path": "/patterns/{patternId}/tile-check-jobs",
+      "summary": null
+    },
+    {
+      "operationId": "listPatternPrintPacks",
+      "method": "get",
+      "path": "/patterns/{patternId}/print-packs",
+      "summary": null
+    },
+    {
+      "operationId": "getPrintPack",
+      "method": "get",
+      "path": "/print-packs/{printPackId}",
+      "summary": null
+    },
+    {
+      "operationId": "createPatternListingJob",
+      "method": "post",
+      "path": "/patterns/{patternId}/listing-jobs",
+      "summary": null
+    },
+    {
+      "operationId": "getPatternListingResult",
+      "method": "get",
+      "path": "/patterns/{patternId}/listing-jobs/{jobId}/result",
+      "summary": null
+    },
+    {
+      "operationId": "listPatternPipelines",
+      "method": "get",
+      "path": "/patterns/{patternId}/pipelines",
+      "summary": null
+    },
+    {
+      "operationId": "createPatternPipeline",
+      "method": "post",
+      "path": "/patterns/{patternId}/pipelines",
+      "summary": null
+    },
+    {
+      "operationId": "getPatternPipeline",
+      "method": "get",
+      "path": "/pattern-pipelines/{pipelineId}",
+      "summary": null
+    },
+    {
+      "operationId": "continuePatternPipeline",
+      "method": "post",
+      "path": "/pattern-pipelines/{pipelineId}/continue",
+      "summary": null
+    },
+    {
+      "operationId": "retryPatternPipelineStep",
+      "method": "post",
+      "path": "/pattern-pipelines/{pipelineId}/steps/{step}/retry",
+      "summary": null
+    },
+    {
+      "operationId": "cancelPatternPipeline",
+      "method": "post",
+      "path": "/pattern-pipelines/{pipelineId}/cancel",
+      "summary": null
+    },
+    {
+      "operationId": "listPodPrintSpecs",
+      "method": "get",
+      "path": "/pod/print-specs",
+      "summary": null
+    },
+    {
+      "operationId": "getPatternFile",
+      "method": "get",
+      "path": "/files/patterns/{patternId}",
+      "summary": null
+    },
+    {
+      "operationId": "getPrintPackFile",
+      "method": "get",
+      "path": "/files/print-packs/{printPackId}/files/{index}",
+      "summary": null
+    },
+    {
+      "operationId": "uploadPattern",
+      "method": "post",
+      "path": "/patterns/upload",
+      "summary": null
+    },
+    {
+      "operationId": "listPatternDrafts",
+      "method": "get",
+      "path": "/pattern-drafts",
+      "summary": null
+    },
+    {
+      "operationId": "createPatternDraft",
+      "method": "post",
+      "path": "/pattern-drafts",
+      "summary": null
+    },
+    {
+      "operationId": "getPatternDraft",
+      "method": "get",
+      "path": "/pattern-drafts/{draftId}",
+      "summary": null
+    },
+    {
+      "operationId": "updatePatternDraft",
+      "method": "patch",
+      "path": "/pattern-drafts/{draftId}",
+      "summary": null
+    },
+    {
+      "operationId": "deletePatternDraft",
+      "method": "delete",
+      "path": "/pattern-drafts/{draftId}",
+      "summary": null
+    },
+    {
+      "operationId": "listDraftMedia",
+      "method": "get",
+      "path": "/pattern-drafts/{draftId}/media",
+      "summary": null
+    },
+    {
+      "operationId": "createDraftMedia",
+      "method": "post",
+      "path": "/pattern-drafts/{draftId}/media",
+      "summary": null
+    },
+    {
+      "operationId": "updateDraftMedia",
+      "method": "patch",
+      "path": "/pattern-drafts/{draftId}/media/{mediaId}",
+      "summary": null
+    },
+    {
+      "operationId": "deleteDraftMedia",
+      "method": "delete",
+      "path": "/pattern-drafts/{draftId}/media/{mediaId}",
+      "summary": null
+    },
+    {
+      "operationId": "deleteDraftCandidate",
+      "method": "delete",
+      "path": "/pattern-drafts/{draftId}/candidates/{candidateId}",
+      "summary": null
+    },
+    {
+      "operationId": "listDraftBatches",
+      "method": "get",
+      "path": "/pattern-drafts/{draftId}/batches",
+      "summary": null
+    },
+    {
+      "operationId": "createDraftBatch",
+      "method": "post",
+      "path": "/pattern-drafts/{draftId}/batches",
+      "summary": null
+    },
+    {
+      "operationId": "retryFailedDraftBatch",
+      "method": "post",
+      "path": "/pattern-drafts/{draftId}/batches/{batchId}/retry-failed",
+      "summary": null
+    },
+    {
+      "operationId": "listDraftCandidates",
+      "method": "get",
+      "path": "/pattern-drafts/{draftId}/candidates",
+      "summary": null
+    },
+    {
+      "operationId": "createDraftCandidateEdit",
+      "method": "post",
+      "path": "/pattern-drafts/{draftId}/candidates/{candidateId}/edits",
+      "summary": null
+    },
+    {
+      "operationId": "checkDraftCandidateTileability",
+      "method": "post",
+      "path": "/pattern-drafts/{draftId}/candidates/{candidateId}/tile-check",
+      "summary": null
+    },
+    {
+      "operationId": "finalizeDraftCandidate",
+      "method": "post",
+      "path": "/pattern-drafts/{draftId}/candidates/{candidateId}/finalize",
+      "summary": null
+    },
+    {
+      "operationId": "downloadDraftCandidateFile",
+      "method": "get",
+      "path": "/files/pattern-drafts/{draftId}/candidates/{candidateId}",
+      "summary": null
+    },
+    {
+      "operationId": "downloadDraftMediaFile",
+      "method": "get",
+      "path": "/files/pattern-drafts/{draftId}/media/{mediaId}",
+      "summary": null
+    }
+  ]
+}

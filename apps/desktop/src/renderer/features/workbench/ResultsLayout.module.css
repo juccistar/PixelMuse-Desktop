@@ -1,0 +1,138 @@
+.summary { margin: 8px 0 0; color: var(--text-2); font-size: 13px; }
+.heading h1 small { margin-left: 10px; padding: 3px 9px; border: 1px solid var(--line-2); border-radius: 20px; font-size: 12px; font-weight: 400; vertical-align: middle; }
+.filters { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 6px 0 24px; }
+.filters button { min-width: 90px; padding: 7px 14px; border: 1px solid var(--line-2); border-radius: 6px; color: var(--text-2); background: var(--bg-2); cursor: pointer; }
+.filters button[data-active='true'] { background: var(--text-1); color: var(--bg-0); }
+.filters label { margin-left: auto; font-size: 12px; color: var(--text-2); }
+.filters small { color: var(--text-3); }
+.cardFooter { display: flex; align-items: baseline; gap: 8px; margin-top: 8px; }
+.cardFooter > span { font-size: 12px; color: var(--text-3); }
+.cardFooter h2 { margin: 0; font-size: 14px; font-weight: 500; }
+.cardPurpose { margin: 5px 0 0; color: var(--text-3); font-size: 11px; }
+.emptyCard { margin-top: 8px; display: grid; aspect-ratio: 1; border: 1px solid var(--line-2); border-radius: 8px; background: var(--bg-2); }
+.emptyCard > div { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; }
+.emptyIcon { font-size: 40px; color: var(--text-3); }
+.footer { display: flex; align-items: center; gap: 16px; padding: 16px 0; border-top: 1px solid var(--line-1); }
+.orderList, .exportList { padding: 0; list-style: none; }
+.orderList li, .exportList li { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--line-1); }
+.orderList li > span, .exportList li > div { flex: 1; }
+.exportList small { display: block; margin-top: 6px; color: var(--text-3); }
+.workspace {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.heading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.heading h1 {
+  margin: 0;
+  color: var(--text-1);
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.heading > span,
+.selectedCount {
+  color: var(--text-3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.toolbar,
+.exportControls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  min-width: 0;
+}
+
+.toolbar {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line-1);
+}
+
+.selectedCount {
+  margin-right: 4px;
+  color: var(--text-2);
+}
+
+.exportControls {
+  margin-left: auto;
+}
+
+/* 以结果区实际可用宽度分列，随配置面板和全局侧栏尺寸自然收放。 */
+.gallery.gallery {
+  min-width: 0;
+  min-height: 0;
+  padding: 0 0 40px;
+  background: transparent;
+}
+
+.gallery .batch {
+  padding: 0 0 28px;
+}
+
+.gallery .batch::before {
+  display: none;
+}
+
+.gallery .batchMeta {
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-bottom: 14px;
+}
+
+.gallery .batchMeta strong {
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.gallery .batchMeta span {
+  font-size: 11px;
+}
+
+/* 覆盖工作台旧多列排版，保持各分镜按行阅读，不拆散候选叠栈。 */
+.gallery .batchGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 232px), 1fr));
+  align-items: start;
+  gap: 20px 16px;
+  columns: auto;
+}
+
+.group {
+  min-width: 0;
+}
+
+.groupTitle {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 8px;
+  color: var(--text-1);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.groupTitle > span {
+  flex-shrink: 0;
+  color: var(--text-3);
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 400;
+}

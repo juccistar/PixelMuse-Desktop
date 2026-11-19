@@ -1,0 +1,32 @@
+{
+  "source": "legacy/packages/contracts/src/enums.ts",
+  "kinds": [
+    "PLAN",
+    "COPYWRITE",
+    "GENERATE",
+    "EXPORT",
+    "EDIT_PLAN",
+    "EDIT_GENERATE",
+    "LAYER_PLAN",
+    "LAYER_EXPORT",
+    "SUITE_FORGE",
+    "MODEL_CAST",
+    "PATTERN_EXTRACT",
+    "PATTERN_FORGE",
+    "PATTERN_DERIVE",
+    "PATTERN_VARIANT",
+    "PATTERN_TILE_CHECK",
+    "PRINT_PACK",
+    "PATTERN_DRAFT_GENERATE",
+    "PATTERN_DRAFT_EDIT",
+    "PATTERN_DRAFT_CUTOUT",
+    "PATTERN_DRAFT_PROCESS"
+  ],
+  "additionalBranches": [
+    {
+      "kind": "COPYWRITE",
+      "target": "LISTING"
+    }
+  ],
+  "note": "Offline coverage baseline; each kind needs a real desktop executor and behavior verification."
+}

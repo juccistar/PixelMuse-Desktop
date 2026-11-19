@@ -1,0 +1,34 @@
+{
+  "name": "ecomgen-desktop-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.19.0",
+  "engines": { "node": ">=22.19.0" },
+  "scripts": {
+    "dev": "pnpm --filter @ecomgen/backend... build && pnpm --filter @ecomgen/desktop dev",
+    "build": "pnpm -r build",
+    "test": "vitest run",
+    "test:e2e:mock": "node scripts/e2e-full.mjs",
+    "test:e2e:pixelmuse": "node scripts/pixelmuse-acceptance.mjs",
+    "test:e2e:settings": "node scripts/settings-acceptance.mjs",
+    "test:e2e:check": "node scripts/e2e-full.mjs --check",
+    "test:release-checker": "node --test scripts/verify-release-test.mjs",
+    "verify:release": "node scripts/verify-release.mjs",
+    "start": "pnpm --filter @ecomgen/desktop start",
+    "pack": "pnpm build && pnpm --filter @ecomgen/desktop run pack",
+    "dist": "pnpm build && pnpm --filter @ecomgen/desktop run dist"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.4",
+    "jsdom": "^24.1.3",
+    "playwright-core": "^1.64.1",
+    "typescript": "~5.8.3",
+    "tsx": "^4.19.4",
+    "vitest": "^3.1.2"
+  }
+}

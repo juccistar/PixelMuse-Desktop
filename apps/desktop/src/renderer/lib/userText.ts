@@ -1,0 +1,67 @@
+import { EDIT_EXECUTION_MODE_CAPABILITIES, EDIT_OPERATION_CAPABILITIES } from "@ecomgen/contracts";
+// 标签从契约的能力注册表派生：这里只负责把 string 形态的接口值翻译成中文，
+// 不再维护第二份枚举清单（曾经本地名单漏项导致新渠道被静默降级）。
+export const EDIT_OPERATION_LABEL: Record<string, string> = Object.fromEntries(Object.entries(EDIT_OPERATION_CAPABILITIES).map(([operation, capability]) => [operation, capability.label]));
+export const EDIT_EXECUTION_MODE_LABEL: Record<string, string> = Object.fromEntries(Object.entries(EDIT_EXECUTION_MODE_CAPABILITIES).map(([mode, capability]) => [mode, capability.label]));
+const EDIT_ERROR_LABEL: Record<string, string> = {
+    REFERENCE_ASSET_REQUIRED: "请先选择参考素材",
+    EDIT_TARGET_REQUIRED: "请先标注要修改的区域",
+    OUTPAINT_CANVAS_REQUIRED: "请先选择扩展画布方向",
+    EDIT_VISION_REQUIRED: "当前推理模型无法看图，请标注区域或更换支持视觉的模型",
+    CAPABILITY_UNSUPPORTED: "当前模型不支持此编辑操作",
+    EDIT_PLAN_INVALID: "模型返回的编辑方案不符合要求，请重试。",
+    EDIT_PLAN_EMPTY: "模型未返回编辑方案，请重试。",
+    EDIT_PLAN_MASK_REQUIRED: "模型返回的编辑方案未遵守选区，请重试。",
+    TASK_ERROR: "任务未完成，请查看任务状态。",
+    EXTERNAL_UNKNOWN: "任务已中断，可选择重试或结束。",
+};
+const ERROR_MESSAGE_LABEL: Array<[
+    string,
+    string
+]> = [
+    ["Selected image model has no image API configured", "所选生图模型未配置图像接口"],
+    ["Selected reasoning model must support Vision for AI copywriting", "所选推理模型必须支持视觉能力，才能使用 AI 帮写"],
+    ["selected image model cannot execute masked edits", "所选生图模型无法执行蒙版编辑"],
+    ["model is not declared by the selected provider", "所选模型未在当前 Provider 中声明"],
+];
+export function editOperationLabel(operation: string | undefined): string {
+    if (!operation)
+        return "编辑操作";
+    return EDIT_OPERATION_LABEL[operation] ?? "编辑操作";
+}
+export function editExecutionModeLabel(mode: string | undefined): string {
+    if (!mode)
+        return "执行方式";
+    return EDIT_EXECUTION_MODE_LABEL[mode] ?? "执行方式";
+}
+export function editOperationImpactHint(operation: string | undefined): string | undefined {
+    return operation ? EDIT_OPERATION_CAPABILITIES[operation as keyof typeof EDIT_OPERATION_CAPABILITIES]?.impactHint : undefined;
+}
+export function editErrorLabel(message: string | undefined): string {
+    if (!message)
+        return "需要补充编辑区域或参考素材。";
+    const code = Object.keys(EDIT_ERROR_LABEL).find((value) => message === value || message.startsWith(`${value}:`));
+    return code ? EDIT_ERROR_LABEL[code]! : translateErrorMessage(message);
+}
+export function translateErrorMessage(message: string): string {
+    const trimmed = message.trim();
+    if (trimmed.startsWith("{")) {
+        try {
+            const parsed = JSON.parse(trimmed) as {
+                error?: {
+                    message?: unknown;
+                };
+            };
+            if (typeof parsed.error?.message === "string")
+                return translateErrorMessage(parsed.error.message);
+        }
+        catch {
+            // 非 JSON 错误文本继续按普通消息处理。
+        }
+    }
+    const code = Object.keys(EDIT_ERROR_LABEL).find((value) => trimmed === value || trimmed.startsWith(`${value}:`));
+    if (code)
+        return EDIT_ERROR_LABEL[code]!;
+    const match = ERROR_MESSAGE_LABEL.find(([english]) => message.includes(english));
+    return match?.[1] ?? message;
+}

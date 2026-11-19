@@ -1,0 +1,40 @@
+/* PixelMuse A：中性黑白用于界面，语义色用于真实状态，创作内容保留本色。 */
+:root {
+  --bg-0: #080808;
+  --bg-1: #101010;
+  --bg-2: #191919;
+  --bg-3: #262626;
+  --bg-lightbox: #141414;
+  --line-1: #292929;
+  --line-2: #454545;
+  --text-1: #f2f2f0;
+  --text-2: #b8b8b5;
+  --text-3: #969693;
+  --accent: #f1f1ed;
+  --accent-hover: #ffffff;
+  --accent-active: #d7d7d2;
+  --accent-ink: #111111;
+  --accent-subtle: rgba(241, 241, 237, 0.08);
+  --accent-line: rgba(241, 241, 237, 0.4);
+  --success: #73bd91;
+  --warning: #e2a35e;
+  --danger: #eb8174;
+  --info: var(--accent);
+  --radius-s: 4px;
+  --radius-m: 6px;
+  --radius-l: 8px;
+  --shadow-pop: 0 16px 48px rgba(0, 0, 0, 0.5);
+  --topbar-h: 60px;
+  --app-sidebar-w: 208px;
+  --font-display: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-body: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  --z-sticky: 10;
+  --z-overlay: 100;
+  --z-drawer: 500;
+  --z-modal: 600;
+  --z-toast: 700;
+}
+@media (max-width: 1180px) {
+  :root { --app-sidebar-w: 172px; }
+}

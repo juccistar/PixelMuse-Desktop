@@ -1,0 +1,279 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { highInputFidelityForOpenAiImageModel, imageEditCapabilitiesFor, OpenAiCompatibleImageProvider, sniffImageMimeType } from "./openai-compatible.js";
+
+describe("OpenAI-compatible image editing", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("keeps source image first and sends references, mask, operation and fidelity", async () => {
+    let request: RequestInit | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (_url: URL, init?: RequestInit) => {
+      request = init;
+      return new Response(JSON.stringify({ data: [{ b64_json: Buffer.from("generated").toString("base64") }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" }
+      });
+    }));
+
+    const provider = new OpenAiCompatibleImageProvider({ baseUrl: "https://example.test/v1", apiKey: "secret" });
+    await provider.editImage({
+      model: "image-model",
+      prompt: "replace the background",
+      operation: "NATURAL_FUSION",
+      inputFidelity: "high",
+      sourceImage: { data: Buffer.from("source"), filename: "source.png", mimeType: "image/png" },
+      referenceImages: [
+        { data: Buffer.from("reference-1"), filename: "reference-1.png", mimeType: "image/png" },
+        { data: Buffer.from("reference-2"), filename: "reference-2.png", mimeType: "image/png" }
+      ],
+      mask: { data: Buffer.from("mask"), filename: "mask.png", mimeType: "image/png" }
+    });
+
+    expect(request?.method).toBe("POST");
+    expect(new Headers(request?.headers).get("Idempotency-Key")).toBeNull();
+    const body = request?.body as FormData;
+    expect(body.get("operation")).toBe("NATURAL_FUSION");
+    expect(body.get("input_fidelity")).toBe("high");
+    expect((body.getAll("image") as File[]).map((file) => file.name)).toEqual(["source.png", "reference-1.png", "reference-2.png"]);
+    expect((body.get("mask") as File).name).toBe("mask.png");
+  });
+
+  it("sends a stable idempotency key for generation retries", async () => {
+    let request: RequestInit | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (_url: URL, init?: RequestInit) => {
+      request = init;
+      return new Response(JSON.stringify({ data: [{ b64_json: Buffer.from("generated").toString("base64") }] }), { status: 200 });
+    }));
+    const provider = new OpenAiCompatibleImageProvider({ baseUrl: "https://example.test/v1", apiKey: "secret" });
+    await provider.generate({ model: "image-model", prompt: "cup", idempotencyKey: "generation-key-1" });
+    expect(new Headers(request?.headers).get("Idempotency-Key")).toBe("generation-key-1");
+  });
+
+  it("forwards high input fidelity when generating from product images", async () => {
+    let request: RequestInit | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (_url: URL, init?: RequestInit) => {
+      request = init;
+      return new Response(JSON.stringify({ data: [{ b64_json: Buffer.from("generated").toString("base64") }] }), { status: 200 });
+    }));
+    const provider = new OpenAiCompatibleImageProvider({ baseUrl: "https://example.test/v1", apiKey: "secret" });
+    await provider.generate({
+      model: "gpt-image-1",
+      prompt: "Use the supplied product image.",
+      inputFidelity: highInputFidelityForOpenAiImageModel("gpt-image-1"),
+      images: [{ data: Buffer.from("product"), filename: "product.png", mimeType: "image/png" }],
+    });
+    expect((request?.body as FormData).get("input_fidelity")).toBe("high");
+    expect(highInputFidelityForOpenAiImageModel("gpt-image-2")).toBeUndefined();
+    expect(highInputFidelityForOpenAiImageModel("third-party-image")).toBeUndefined();
+  });
+
+  it("does not upload a mask for unmasked edits", async () => {
+    let request: RequestInit | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (_url: URL, init?: RequestInit) => {
+      request = init;
+      return new Response(JSON.stringify({ data: [{ b64_json: Buffer.from("generated").toString("base64") }] }), { status: 200 });
+    }));
+    const provider = new OpenAiCompatibleImageProvider({ baseUrl: "https://example.test/v1", apiKey: "secret" });
+    await provider.editImage({ model: "image-model", prompt: "edit the target", operation: "NATURAL_FUSION", sourceImage: { data: Buffer.from("source"), filename: "source.png", mimeType: "image/png" } });
+    expect((request?.body as FormData).get("mask")).toBeNull();
+  });
+
+  it("透明底要求同时下发 background 与 output_format，未要求时不带这两个字段", async () => {
+    const requests: RequestInit[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (_url: URL, init?: RequestInit) => {
+      requests.push(init!);
+      return new Response(JSON.stringify({ data: [{ b64_json: Buffer.from("generated").toString("base64") }] }), { status: 200 });
+    }));
+    const provider = new OpenAiCompatibleImageProvider({ baseUrl: "https://example.test/v1", apiKey: "secret" });
+
+    // JSON 生成路径
+    await provider.generate({ model: "gpt-image-1.5", prompt: "pattern", background: "transparent", outputFormat: "png" });
+    expect(JSON.parse(requests[0]!.body as string)).toMatchObject({ background: "transparent", output_format: "png" });
+    // 多部分编辑路径：编辑后仍要保住源花型的 alpha
+    await provider.editImage({
+      model: "gpt-image-1.5",
+      prompt: "variant",
+      operation: "NATURAL_FUSION",
+      sourceImage: { data: Buffer.from("source"), filename: "pattern.png", mimeType: "image/png" },
+      background: "transparent",
+      outputFormat: "png"
+    });
+    const editBody = requests[1]!.body as FormData;
+    expect(editBody.get("background")).toBe("transparent");
+    expect(editBody.get("output_format")).toBe("png");
+
+    // 默认请求保持原样：第三方兼容端点不认这两个参数，多发可能让整次调用失败。
+    await provider.generate({ model: "image-model", prompt: "cup" });
+    const defaultBody = JSON.parse(requests[2]!.body as string) as Record<string, unknown>;
+    expect(defaultBody).not.toHaveProperty("background");
+    expect(defaultBody).not.toHaveProperty("output_format");
+  });
+
+  it("derives edit capabilities from the selected image API adapter", () => {
+    const imageModel = { supportsVision: true, supportsThinking: false, supportsTools: false, supportsStructuredOutput: false, imageApiKind: "openai_images" as const };
+    const textModel = { ...imageModel, imageApiKind: null };
+    expect(imageEditCapabilitiesFor(imageModel)).toMatchObject({
+      supportsMaskEdit: true,
+      supportsUnmaskedEdit: true,
+      supportsMultiReference: true,
+      supportsOutpaint: true,
+      supportsInputFidelity: true,
+      supportsNaturalBlend: true
+    });
+    expect(imageEditCapabilitiesFor(textModel)).toBeNull();
+  });
+
+  it.each([408, 429, 500, 502, 503, 504])("付费生成收到 HTTP %s 时只请求一次，即使提供幂等键", async (status) => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("provider busy", { status }));
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new OpenAiCompatibleImageProvider({ baseUrl: "https://example.test/v1", apiKey: "secret" });
+    await expect(provider.generate({ model: "image-model", prompt: "cup", idempotencyKey: "key-1" })).rejects.toThrow("provider busy");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([new TypeError("fetch failed"), new DOMException("timed out", "TimeoutError")])("网络失败和超时不会重新发送付费编辑请求", async (error) => {
+    const fetchMock = vi.fn().mockRejectedValue(error);
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new OpenAiCompatibleImageProvider({ baseUrl: "https://example.test/v1", apiKey: "secret" });
+    await expect(provider.editImage({ model: "image-model", prompt: "cup", sourceImage: { data: Buffer.from("image"), filename: "cup.png", mimeType: "image/png" } })).rejects.toBe(error);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+});
+
+/** 构造按 name 判定瞬时性的错误，复现 AbortSignal 的两种中断来源。 */
+function namedError(name: string, message: string): Error {
+  const error = new Error(message);
+  error.name = name;
+  return error;
+}
+
+/** 只接受连接、永不返回的 fetch 替身，用于验证在途请求能否被取消中断。 */
+function hangingFetch(): { fetchMock: ReturnType<typeof vi.fn>; captured: () => AbortSignal | undefined } {
+  let signal: AbortSignal | undefined;
+  const fetchMock = vi.fn(async (_url: URL, init?: RequestInit) => {
+    signal = init?.signal ?? undefined;
+    return await new Promise<Response>((_resolve, reject) => {
+      signal?.addEventListener("abort", () => reject(signal?.reason), { once: true });
+    });
+  });
+  return { fetchMock, captured: () => signal };
+}
+
+describe("生图请求的取消传播", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("取消中断在途生成请求，且不再重发付费请求", async () => {
+    const { fetchMock, captured } = hangingFetch();
+    vi.stubGlobal("fetch", fetchMock);
+    const controller = new AbortController();
+    const provider = new OpenAiCompatibleImageProvider({ baseUrl: "https://example.test/v1", apiKey: "secret" });
+    const pending = provider.generate({ model: "image-model", prompt: "cup", idempotencyKey: "key-1", signal: controller.signal });
+    const reason = new Error("cancelled-by-user");
+    controller.abort(reason);
+    await expect(pending).rejects.toThrow("cancelled-by-user");
+    // 请求信号确实被传给了 fetch，且随调用方取消而中断。
+    expect(captured()?.aborted).toBe(true);
+    // 重发一次就是再付一次费：取消后必须停在一次请求上。
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("AbortError 不再被当作瞬时错误重试", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(namedError("AbortError", "The operation was aborted."));
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new OpenAiCompatibleImageProvider({ baseUrl: "https://example.test/v1", apiKey: "secret" });
+    await expect(provider.generate({ model: "image-model", prompt: "cup" })).rejects.toThrow("The operation was aborted.");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("取消原因无论叫什么名字都不会被重试", async () => {
+    // 无论取消原因名称如何，外部未知状态都不能自动重发。
+    for (const name of ["AbortError", "TimeoutError"]) {
+      const controller = new AbortController();
+      const { fetchMock } = hangingFetch();
+      vi.stubGlobal("fetch", fetchMock);
+      const provider = new OpenAiCompatibleImageProvider({ baseUrl: "https://example.test/v1", apiKey: "secret" });
+      const pending = provider.generate({ model: "image-model", prompt: "cup", signal: controller.signal });
+      controller.abort(namedError(name, "cancelled"));
+      await expect(pending).rejects.toThrow("cancelled");
+      expect(fetchMock, `${name} 取消后仍重发了上游请求`).toHaveBeenCalledTimes(1);
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("显式请求超时中断生成且不自动重试", async () => {
+    const { fetchMock, captured } = hangingFetch();
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new OpenAiCompatibleImageProvider({ baseUrl: "https://example.test/v1", apiKey: "secret", requestTimeoutMs: 20 });
+    await expect(provider.generate({ model: "image-model", prompt: "cup" })).rejects.toMatchObject({ name: "TimeoutError" });
+    expect(captured()?.aborted).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("下载 Provider 返回的图片 URL 时同样传入中断信号", async () => {
+    let downloadSignal: AbortSignal | undefined;
+    const fetchMock = vi.fn(async (url: URL | string, init?: RequestInit) => {
+      if (String(url).includes("cdn.example.test")) {
+        downloadSignal = init?.signal ?? undefined;
+        return new Response(Buffer.from("downloaded"), { status: 200, headers: { "content-type": "image/webp" } });
+      }
+      return new Response(JSON.stringify({ data: [{ url: "https://cdn.example.test/image.webp" }] }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new OpenAiCompatibleImageProvider({ baseUrl: "https://example.test/v1", apiKey: "secret" });
+    const result = await provider.generate({ model: "image-model", prompt: "cup", signal: new AbortController().signal });
+    expect(result.mimeType).toBe("image/webp");
+    // 修复前该下载既无超时也无取消，可能永久挂起。
+    expect(downloadSignal).toBeDefined();
+    expect(downloadSignal?.aborted).toBe(false);
+  });
+});
+
+describe("生图响应格式识别与 Seedream 域参数", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("b64 响应按字节签名识别 JPEG，不再一律标成 PNG", async () => {
+    // Seedream 的 b64_json 实际返回 JPEG 字节；修复前被硬编码标注为 image/png，
+    // 落盘扩展名与 API 回传 Content-Type 随之失真。
+    const jpegBytes = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(32, 0x11)]);
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ data: [{ b64_json: jpegBytes.toString("base64") }] }), { status: 200 })));
+    const provider = new OpenAiCompatibleImageProvider({ baseUrl: "https://example.test/v1", apiKey: "secret" });
+    await expect(provider.generate({ model: "doubao-seedream-4-0-250828", prompt: "cup" })).resolves.toMatchObject({ mimeType: "image/jpeg" });
+  });
+
+  it("watermark 仅在调用方提供时下发", async () => {
+    let requestBody: string | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (_url: URL, init?: RequestInit) => {
+      requestBody = init?.body as string;
+      return new Response(JSON.stringify({ data: [{ b64_json: Buffer.from("generated").toString("base64") }] }), { status: 200 });
+    }));
+    const provider = new OpenAiCompatibleImageProvider({ baseUrl: "https://example.test/v1", apiKey: "secret" });
+    await provider.generate({ model: "doubao-seedream-4-0-250828", prompt: "cup", watermark: false });
+    expect(JSON.parse(requestBody!)).toMatchObject({ watermark: false });
+    requestBody = undefined;
+    await provider.generate({ model: "gpt-image-1", prompt: "cup" });
+    expect(JSON.parse(requestBody!)).not.toHaveProperty("watermark");
+  });
+
+  it("response_format 仅发给非 gpt-image 模型（官方文档：GPT image 模型不支持该参数）", async () => {
+    let requestBody: string | undefined;
+    vi.stubGlobal("fetch", vi.fn(async (_url: URL, init?: RequestInit) => {
+      requestBody = init?.body as string;
+      return new Response(JSON.stringify({ data: [{ b64_json: Buffer.from("generated").toString("base64") }] }), { status: 200 });
+    }));
+    const provider = new OpenAiCompatibleImageProvider({ baseUrl: "https://example.test/v1", apiKey: "secret" });
+    await provider.generate({ model: "gpt-image-2", prompt: "cup" });
+    expect(JSON.parse(requestBody!)).not.toHaveProperty("response_format");
+    requestBody = undefined;
+    await provider.generate({ model: "doubao-seedream-4-0-250828", prompt: "cup" });
+    expect(JSON.parse(requestBody!)).toMatchObject({ response_format: "b64_json" });
+  });
+
+  it("sniffImageMimeType 覆盖 png/jpeg/webp 签名，未知字节返回 null", () => {
+    expect(sniffImageMimeType(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01]))).toBe("image/png");
+    expect(sniffImageMimeType(Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00]))).toBe("image/jpeg");
+    expect(sniffImageMimeType(Buffer.concat([Buffer.from("RIFF"), Buffer.alloc(4, 0), Buffer.from("WEBP"), Buffer.alloc(4)]))).toBe("image/webp");
+    expect(sniffImageMimeType(Buffer.from("not an image"))).toBeNull();
+    expect(sniffImageMimeType(Buffer.alloc(0))).toBeNull();
+  });
+});

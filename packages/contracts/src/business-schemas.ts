@@ -1,0 +1,225 @@
+import { ModelRef, EcomSuiteFile, SuiteCategory, SuiteStyleLock, EcomSuiteShot, EcomSuiteSummary, EcomSuiteDetail, EcomSuiteOriginCounts, EcomSuitesResponse, EcomSuiteCategoriesResponse } from "@ecomgen/domain";
+export { EcomSuiteFile, SuiteCategory, SuiteStyleLock, EcomSuiteShot, EcomSuiteSummary, EcomSuiteDetail, EcomSuiteOriginCounts, EcomSuitesResponse, EcomSuiteCategoriesResponse };
+import { Type, type Static } from "@sinclair/typebox";
+import { DesktopHistorySchema } from './history-dto.js';
+import { AssetRole, CompositePolicy, CopywritingTarget, EcomSuiteOrigin, EditExecutionMode, EditOperation, EditSessionStatus, EditTurnStatus, ImageAspectRatio, ImageOutputFormat, ImageQuality, ImageResolution, JobType, LibraryItemKind, LibraryItemSource, PlanningMode, PromptLanguage, ReferencePurpose, ReferenceSource, SearchSourceKind, StoryboardShotRole, UserAssetKind } from "@ecomgen/domain";
+import { SEGMENTATION_PROTOCOLS } from "@ecomgen/domain";
+import { schemaRef, ProductImagePlanningContextSchema, StoryboardPlanningSourceSchema } from "@ecomgen/domain";
+
+// 分割协议枚举从能力注册表派生：新增协议只改 segmentation.ts，这里自动跟上。
+const segmentationProtocolSchema = (description: string) => Type.Union(SEGMENTATION_PROTOCOLS.map((protocol) => Type.Literal(protocol)), { description });
+
+// API wire schemas: the single hand-written contract source for OpenAPI generation.
+
+export const Asset = Type.Object({ id: Type.String({ format: "uuid" }), projectId: Type.String({ format: "uuid" }), role: schemaRef(AssetRole), kind: Type.Optional(schemaRef(UserAssetKind)), url: Type.Optional(Type.String()), storagePath: Type.Optional(Type.String()), mimeType: Type.String(), size: Type.Optional(Type.Integer({minimum:0})), originalName: Type.Optional(Type.String()), hash: Type.Optional(Type.String()), width: Type.Optional(Type.Union([Type.Integer(), Type.Null()])), height: Type.Optional(Type.Union([Type.Integer(), Type.Null()])), createdAt: Type.String({ format: "date-time" }) }, { $id: "#/components/schemas/Asset" });
+export type Asset = Static<typeof Asset>;
+
+export { ModelRef } from '@ecomgen/domain';
+
+export const SegmentationModelRef = Type.Object({
+  providerId: Type.String({ format: "uuid" }),
+  modelId: Type.String(),
+  protocol: Type.Optional(segmentationProtocolSchema("Segmentation API protocol; derived from the model's declared segmentationProtocol and re-stated here for the Worker adapter. A body protocol that contradicts the declared one is rejected."))
+}, { $id: "#/components/schemas/SegmentationModelRef", description: "Segmentation model reference; the referenced model must be declared as a segmentation model on its provider." });
+export type SegmentationModelRef = Static<typeof SegmentationModelRef>;
+
+export const CopywritingResult = Type.Object({ jobId: Type.String({ format: "uuid" }), projectId: Type.String({ format: "uuid" }), target: schemaRef(CopywritingTarget), content: Type.String(), createdAt: Type.String({ format: "date-time" }) }, { $id: "#/components/schemas/CopywritingResult" });
+export type CopywritingResult = Static<typeof CopywritingResult>;
+
+export const CreateCopywritingJobInput = Type.Object({ target: schemaRef(CopywritingTarget), regenerationKey: Type.String({ description: "Unique key for an intentional copywriting run.", minLength: 1 }) }, { $id: "#/components/schemas/CreateCopywritingJobInput" });
+export type CreateCopywritingJobInput = Static<typeof CreateCopywritingJobInput>;
+
+// 详情页长图：EXPORT 的可选产物。携带该配置时 Worker 把选中输出按 outputIds 数组顺序
+// 纵向拼接为单张长图（可选再按屏边界切片），产物在 ZIP 的 long-image/ 目录内。
+// 合成细节（divider 高度/颜色、jpeg 质量）是固定实现口径而非可配置项，随 manifest 声明。
+export const LongImageExportConfig = Type.Object({
+  targetWidth: Type.Union([Type.Literal(750), Type.Literal(790), Type.Literal(1200)], { description: "长图统一宽度：750=手机端详情页通用，790=淘宝/京东 PC 端，1200=拼多多高清档。各屏等比缩放到该宽度。" }),
+  sliceHeight: Type.Optional(Type.Integer({ minimum: 320, maximum: 2000, description: "切片目标高度（px）；缺省不切片。切点只落在屏边界，永不裁穿单屏内容；整图不超过该高度时不产出切片。" })),
+}, { $id: "#/components/schemas/LongImageExportConfig" });
+export type LongImageExportConfig = Static<typeof LongImageExportConfig>;
+
+export const CreateExportJobInput = Type.Object({ outputIds: Type.Optional(Type.Array(Type.String({ format: "uuid" }), { description: "数组顺序即长图拼接顺序（用户可在导出时调整）；缺省时按分镜顺序拼接。" })), filenamePrefix: Type.Optional(Type.String()), platformTargets: Type.Optional(Type.Array(Type.Union([Type.Literal("TAOBAO"), Type.Literal("JD"), Type.Literal("PDD"), Type.Literal("DOUYIN"), Type.Literal("AMAZON"), Type.Literal("SHOPIFY")]))), longImage: Type.Optional(schemaRef(LongImageExportConfig, { description: "携带时导出额外包含长图与可选切片。" })) }, { $id: "#/components/schemas/CreateExportJobInput" });
+export type CreateExportJobInput = Static<typeof CreateExportJobInput>;
+
+export const CreatePlanningJobInput = Type.Object({ planningMode: Type.Optional(schemaRef(PlanningMode)), requestedTypes: Type.Optional(Type.Array(Type.String())), requestedSuiteShots: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { maxItems: 12, description: "套图分镜 assetType 列表（<suiteId>::<shotId>，仅手动规划使用）；每个分镜生成一条分镜，可与 requestedTypes 混选。" })), imageTypes: Type.Optional(Type.Array(Type.String())), userInstruction: Type.Optional(Type.String({ maxLength: 4000 })), candidatesPerType: Type.Optional(Type.Integer({ minimum: 1, maximum: 4 })), targetImageCount: Type.Optional(Type.Integer({ minimum: 1, maximum: 12 })), imageResolution: Type.Optional(schemaRef(ImageResolution)), imageAspectRatio: Type.Optional(schemaRef(ImageAspectRatio)), regenerationKey: Type.Optional(Type.String({ description: "Unique key for an intentional re-planning run.", minLength: 1 })) }, { $id: "#/components/schemas/CreatePlanningJobInput" });
+export type CreatePlanningJobInput = Static<typeof CreatePlanningJobInput>;
+
+export const CreateProjectInput = Type.Object({ name: Type.String({ minLength: 1 }), category: Type.Optional(Type.Union([Type.String(), Type.Null()])), productDescription: Type.Optional(Type.Union([Type.String(), Type.Null()])), verifiedFacts: Type.Optional(Type.Array(Type.String())), prohibitedClaims: Type.Optional(Type.Array(Type.String())), brandGuidelines: Type.Optional(Type.Record(Type.String(), Type.Unknown())), platformTargets: Type.Optional(Type.Array(Type.Union([Type.Literal("TAOBAO"), Type.Literal("JD"), Type.Literal("PDD"), Type.Literal("DOUYIN"), Type.Literal("AMAZON"), Type.Literal("SHOPIFY")]), { maxItems: 1 })), targetMarket: Type.Optional(Type.Union([Type.Literal("CHINA_MAINLAND"), Type.Literal("HONG_KONG"), Type.Literal("MACAU"), Type.Literal("TAIWAN"), Type.Literal("UNITED_STATES"), Type.Literal("UNITED_KINGDOM"), Type.Literal("GERMANY"), Type.Literal("FRANCE"), Type.Literal("ITALY"), Type.Literal("SPAIN"), Type.Literal("JAPAN"), Type.Literal("SOUTH_KOREA"), Type.Null()])), copyLanguage: Type.Optional(Type.Union([Type.String({ minLength: 1, maxLength: 64 }), Type.Null()])), promptLanguage: Type.Optional(schemaRef(PromptLanguage, { description: "Language of the final image-generation prompts produced by planning; defaults to CHINESE." })), reasoningProviderId: Type.String({ format: "uuid" }), reasoningModelId: Type.String(), imageProviderId: Type.String({ format: "uuid" }), imageModelId: Type.String(), segmentationModel: Type.Optional(Type.Union([schemaRef(SegmentationModelRef), Type.Null()])), defaultMode: Type.Union([Type.Literal("CREATIVE"), Type.Literal("PIXEL_PROTECTED")]), imageResolution: Type.Optional(schemaRef(ImageResolution)), imageAspectRatio: Type.Optional(schemaRef(ImageAspectRatio)), candidatesPerType: Type.Optional(Type.Integer({ minimum: 1, maximum: 4 })), webResearchEnabled: Type.Optional(Type.Boolean({ description: "Enable restricted visual-direction web research during Agent planning." })) }, { $id: "#/components/schemas/CreateProjectInput" });
+export type CreateProjectInput = Static<typeof CreateProjectInput>;
+
+export const CreateSearchSourceInput = Type.Object({ name: Type.String({ minLength: 1 }), kind: schemaRef(SearchSourceKind), baseUrl: Type.Optional(Type.String({ format: "uri" })), apiKey: Type.Optional(Type.String({ minLength: 1 })), priority: Type.Integer({ minimum: 0, maximum: 100000 }), enabled: Type.Optional(Type.Boolean({ default: true })) }, { $id: "#/components/schemas/CreateSearchSourceInput" });
+export type CreateSearchSourceInput = Static<typeof CreateSearchSourceInput>;
+
+export const EditReferenceAsset = Type.Object({ id: Type.String({ format: "uuid" }), source: schemaRef(ReferenceSource), purpose: schemaRef(ReferencePurpose), role: Type.Optional(Type.Union([schemaRef(AssetRole), Type.Null()])), originalName: Type.String(), mimeType: Type.String(), hash: Type.String(), createdAt: Type.String({ format: "date-time" }), expiresAt: Type.Optional(Type.Union([Type.String({ format: "date-time" }), Type.Null()])), url: Type.String() }, { $id: "#/components/schemas/EditReferenceAsset" });
+export type EditReferenceAsset = Static<typeof EditReferenceAsset>;
+
+export const EditSession = Type.Object({ id: Type.String({ format: "uuid" }), projectId: Type.String({ format: "uuid" }), currentOutputId: Type.String({ format: "uuid" }), status: Type.Union([Type.Literal("ACTIVE"), Type.Literal("ARCHIVED")]), memorySummary: Type.Object({ summary: Type.Optional(Type.String()), constraints: Type.Optional(Type.Array(Type.String())), sourceOutputId: Type.Optional(Type.String({ description: "Output node that owns the effective branch memory.", format: "uuid" })) }), createdAt: Type.String({ format: "date-time" }), updatedAt: Type.String({ format: "date-time" }) }, { $id: "#/components/schemas/EditSession" });
+export type EditSession = Static<typeof EditSession>;
+
+export const ErrorResponse = Type.Object({ error: Type.Object({ code: Type.String(), message: Type.String(), details: Type.Optional(Type.Array(Type.Record(Type.String(), Type.Unknown()))), requestId: Type.String({ format: "uuid" }) }) }, { $id: "#/components/schemas/ErrorResponse" });
+export type ErrorResponse = Static<typeof ErrorResponse>;
+
+export const Export = Type.Object({ id: Type.String({ format: "uuid" }), projectId: Type.String({ format: "uuid" }), jobId: Type.Optional(Type.String({ format: "uuid" })), status: Type.Union([Type.Literal("QUEUED"), Type.Literal("RUNNING"), Type.Literal("SUCCEEDED"), Type.Literal("FAILED"), Type.Literal("CANCELLED"), Type.Literal("UNKNOWN")]), storagePath: Type.Optional(Type.Union([Type.String(), Type.Null()])), downloadUrl: Type.Optional(Type.Union([Type.String(), Type.Null()])), createdAt: Type.String({ format: "date-time" }) }, { $id: "#/components/schemas/Export" });
+export type Export = Static<typeof Export>;
+
+export const Health = Type.Object({ status: Type.String(), webResearchAvailable: Type.Boolean({ description: "Whether the server has a configured restricted visual-research search key." }) }, { $id: "#/components/schemas/Health" });
+export type Health = Static<typeof Health>;
+
+/**
+ * 运行中任务的进度明细。目前只有套图反推会填：它由一次模型调用产出，进度百分比在模型
+ * 返回前只能停在固定档位，分镜数是这段等待里唯一真实推进的观察值。
+ */
+export const JobProgressDetail = Type.Object({
+  shotsGenerated: Type.Integer({ minimum: 0, description: "流式观察到的已生成分镜数（模型可能回填或重试，不保证单调）。" }),
+  shotsTarget: Type.Union([Type.Integer({ minimum: 1 }), Type.Null()], { description: "建单时指定的目标分镜数；未指定时为 null，此时只有分子没有分母。" }),
+}, { $id: "#/components/schemas/JobProgressDetail" });
+export type JobProgressDetail = Static<typeof JobProgressDetail>;
+
+export const Job = Type.Object({ id: Type.String({ format: "uuid" }), projectId: Type.Union([Type.String({ format: "uuid" }),Type.Null()]), storyboardItemId: Type.Optional(Type.Union([Type.String({ format: "uuid" }), Type.Null()])), type: schemaRef(JobType), copywritingTarget: Type.Optional(Type.Union([Type.Literal("PRODUCT_DESCRIPTION"), Type.Literal("PLANNING_INSTRUCTION"), Type.Literal("LISTING")])), status: Type.Union([Type.Literal("QUEUED"), Type.Literal("RUNNING"), Type.Literal("SUCCEEDED"), Type.Literal("FAILED"), Type.Literal("CANCELLED"), Type.Literal("UNKNOWN")]), progress: Type.Integer({ minimum: 0, maximum: 100 }), retryable: Type.Boolean(), requestFingerprint: Type.Optional(Type.Union([Type.String(), Type.Null()])), providerId: Type.Optional(Type.Union([Type.String({ format: "uuid" }), Type.Null()])), modelId: Type.Optional(Type.Union([Type.String(), Type.Null()])), estimatedCost: Type.Optional(Type.Union([Type.Record(Type.String(), Type.Unknown()), Type.Null()])), actualCost: Type.Optional(Type.Union([Type.Record(Type.String(), Type.Unknown()), Type.Null()])), cancelRequested: Type.Optional(Type.Boolean()), error: Type.Optional(Type.Union([Type.Record(Type.String(), Type.Unknown()), Type.Null()])), progressDetail: Type.Optional(Type.Union([schemaRef(JobProgressDetail), Type.Null()])), createdAt: Type.String({ format: "date-time" }), updatedAt: Type.Optional(Type.String({ format: "date-time" })) }, { $id: "#/components/schemas/Job" });
+export type Job = Static<typeof Job>;
+/** 任务详情与全局列表额外提供已发布桌面的只读结果。 */
+export const HistoryJob = Type.Object({ ...Job.properties, history: Type.Optional(DesktopHistorySchema) });
+
+export const ModelCapability = Type.Object({ id: Type.String(), supportsVision: Type.Boolean(), supportsThinking: Type.Boolean(), supportsTools: Type.Boolean(), supportsStructuredOutput: Type.Boolean(), imageApiKind: Type.Optional(Type.Union([Type.Literal("openai_images"), Type.Literal("gemini"), Type.Literal("custom"), Type.Null()])),   segmentationProtocol: Type.Optional(segmentationProtocolSchema("Segmentation API protocol declared for this model (fal.ai SAM 3, self-hosted Grounded-SAM, Volcengine Seedream layer decomposition, or Gitee AI SAM 3 pipeline); mutually exclusive with imageApiKind.")) }, { $id: "#/components/schemas/ModelCapability" });
+export type ModelCapability = Static<typeof ModelCapability>;
+
+export const Output = Type.Object({ imagePlanning: Type.Optional(ProductImagePlanningContextSchema), id: Type.String({ format: "uuid" }), storyboardItemId: Type.String({ format: "uuid" }), jobId: Type.String({ format: "uuid" }), hash: Type.String({ description: "Content hash of the image; addresses the 512px webp thumbnail at GET /files/thumbnails/{hash}." }), candidateIndex: Type.Optional(Type.Integer({ minimum: 1 })), revision: Type.Optional(Type.String({ description: "Persisted generation revision instruction or retry marker; excludes the private snapshot." })), generationSnapshot: Type.Optional(Type.Union([Type.Object({ providerId: Type.Optional(Type.String({ format: "uuid" })), modelId: Type.Optional(Type.String()), resolution: Type.Optional(schemaRef(ImageResolution)), aspectRatio: Type.Optional(schemaRef(ImageAspectRatio)), size: Type.Optional(Type.String()), quality: Type.Optional(schemaRef(ImageQuality, { description: "本次请求实际下发的质量档位；不消费该参数的模型为空。" })), outputFormat: Type.Optional(schemaRef(ImageOutputFormat, { description: "本次请求实际请求的图片格式；不消费该参数的模型为空。" })), candidateIndex: Type.Optional(Type.Integer({ minimum: 1 })), revision: Type.Optional(Type.String()) }), Type.Null()])), url: Type.Optional(Type.String()), storagePath: Type.Optional(Type.String()), parentOutputId: Type.Optional(Type.Union([Type.String({ format: "uuid" }), Type.Null()])), rootOutputId: Type.Optional(Type.Union([Type.String({ format: "uuid" }), Type.Null()])), editSessionId: Type.Optional(Type.Union([Type.String({ format: "uuid" }), Type.Null()])), editTurnId: Type.Optional(Type.Union([Type.String({ format: "uuid" }), Type.Null()])), generationBatchId: Type.Optional(Type.Union([Type.String({ format: "uuid" }), Type.Null()])), createdAt: Type.String({ format: "date-time" }) }, { $id: "#/components/schemas/Output" });
+export type Output = Static<typeof Output>;
+
+export const PlanningConfigSnapshot = Type.Object({ id: Type.String({ format: "uuid" }), projectId: Type.String({ format: "uuid" }), sourceJobId: Type.String({ format: "uuid" }), payload: Type.Record(Type.String(), Type.Unknown()), createdAt: Type.String({ format: "date-time" }) }, { $id: "#/components/schemas/PlanningConfigSnapshot" });
+export type PlanningConfigSnapshot = Static<typeof PlanningConfigSnapshot>;
+
+export const ProjectCover = Type.Object({ productAssetId: Type.Union([Type.String({ format: "uuid" }), Type.Null()]), coverOutputId: Type.Union([Type.String({ format: "uuid" }), Type.Null()]), previewOutputIds: Type.Array(Type.String({ format: "uuid" })), outputCount: Type.Integer({ minimum: 0 }) }, { $id: "#/components/schemas/ProjectCover" });
+export type ProjectCover = Static<typeof ProjectCover>;
+
+export const ReferenceSelection = Type.Object({ id: Type.String({ format: "uuid" }), source: schemaRef(ReferenceSource), purpose: schemaRef(ReferencePurpose), order: Type.Integer({ minimum: 0 }) }, { $id: "#/components/schemas/ReferenceSelection" });
+export type ReferenceSelection = Static<typeof ReferenceSelection>;
+
+export const SearchSourceConfig = Type.Object({ id: Type.String({ format: "uuid" }), name: Type.String(), kind: schemaRef(SearchSourceKind), baseUrl: Type.String({ format: "uri" }), priority: Type.Integer({ description: "Lower values are searched first.", minimum: 0, maximum: 100000 }), enabled: Type.Boolean(), hasApiKey: Type.Boolean(), createdAt: Type.String({ format: "date-time" }), updatedAt: Type.String({ format: "date-time" }) }, { $id: "#/components/schemas/SearchSourceConfig" });
+export type SearchSourceConfig = Static<typeof SearchSourceConfig>;
+
+export const UserTemplateItem = Type.Object({ id: Type.String({ description: "Server-generated custom template ID with the custom- prefix." }), name: Type.String(), prompt: Type.String({ description: "Full prompt template text; may contain {placeholders} the planning agent rewrites from project context." }), defaultSize: Type.Union([Type.Literal("1024x1024"), Type.Literal("1024x1536")]), supportsImageReference: Type.Boolean(), createdAt: Type.String({ format: "date-time" }), updatedAt: Type.String({ format: "date-time" }) }, { $id: "#/components/schemas/UserTemplateItem" });
+export type UserTemplateItem = Static<typeof UserTemplateItem>;
+
+export const UserTemplateList = Type.Object({ items: Type.Array(schemaRef(UserTemplateItem)), nextCursor: Type.Union([Type.String(), Type.Null()]) }, { $id: "#/components/schemas/UserTemplateList" });
+export type UserTemplateList = Static<typeof UserTemplateList>;
+
+export const CreateUserTemplateInput = Type.Object({ name: Type.String({ minLength: 1, maxLength: 40 }), prompt: Type.String({ minLength: 1, maxLength: 20000, description: "Complete prompt template text. It is planning input with the same shape as built-in prompt_template entries and is injected into the planner payload; the planning Agent rewrites it into promptInstruction, which keeps its own 4000 budget. The 20000 bound is a generous planner-context sanity limit, not the final-prompt budget." }), defaultSize: Type.Optional(Type.Union([Type.Literal("1024x1024"), Type.Literal("1024x1536")], { default: "1024x1024" })), supportsImageReference: Type.Optional(Type.Boolean({ default: true })) }, { $id: "#/components/schemas/CreateUserTemplateInput" });
+export type CreateUserTemplateInput = Static<typeof CreateUserTemplateInput>;
+
+export const UpdateUserTemplateInput = Type.Object({ name: Type.Optional(Type.String({ minLength: 1, maxLength: 40 })), prompt: Type.Optional(Type.String({ minLength: 1, maxLength: 20000 })), defaultSize: Type.Optional(Type.Union([Type.Literal("1024x1024"), Type.Literal("1024x1536")])), supportsImageReference: Type.Optional(Type.Boolean()) }, { $id: "#/components/schemas/UpdateUserTemplateInput" });
+export type UpdateUserTemplateInput = Static<typeof UpdateUserTemplateInput>;
+
+export const StoryboardItem = Type.Object({ planningSource: Type.Optional(StoryboardPlanningSourceSchema), imagePlanning: Type.Optional(ProductImagePlanningContextSchema), planningStale: Type.Optional(Type.Boolean()), planningSuperseded: Type.Optional(Type.Boolean()), id: Type.String({ format: "uuid" }), assetType: Type.String({ description: "Interpretation depends on the explicit planning source; legacy items retain template semantics." }), displayName: Type.String(), shotRole: Type.Optional(Type.Union([schemaRef(StoryboardShotRole), Type.Null()], { description: "Visual-task semantics assigned during planning; immutable. Null for autonomous planning and historical items without a role." })), templateVariant: Type.Optional(Type.Union([Type.String(), Type.Null()])), candidateCount: Type.Integer({ minimum: 1, maximum: 4 }), imageProviderId: Type.Optional(Type.String({ format: "uuid" })), imageModelId: Type.Optional(Type.String()), imageResolution: Type.Optional(schemaRef(ImageResolution)), imageAspectRatio: Type.Optional(schemaRef(ImageAspectRatio)), referencedAssets: Type.Optional(Type.Array(Type.String({ format: "uuid" }))), mode: Type.Union([Type.Literal("CREATIVE"), Type.Literal("PIXEL_PROTECTED")]), status: Type.Union([Type.Literal("DRAFT"), Type.Literal("CONFIRMED"), Type.Literal("GENERATING"), Type.Literal("GENERATED")]), promptInstruction: Type.String({ description: "Final image-generation prompt produced by Pi Agent. Must instruct the image model to preserve exact product identity. Worker prefixes selected image roles in their actual request order before sending it to the image model." }), factClaims: Type.Optional(Type.Array(Type.String())), riskFlags: Type.Array(Type.String()) }, { $id: "#/components/schemas/StoryboardItem" });
+export type StoryboardItem = Static<typeof StoryboardItem>;
+
+export const UpdateSearchSourceInput = Type.Object({ name: Type.Optional(Type.String({ minLength: 1 })), kind: Type.Optional(schemaRef(SearchSourceKind)), baseUrl: Type.Optional(Type.String({ format: "uri" })), apiKey: Type.Optional(Type.String({ minLength: 1 })), priority: Type.Optional(Type.Integer({ minimum: 0, maximum: 100000 })), enabled: Type.Optional(Type.Boolean()) }, { $id: "#/components/schemas/UpdateSearchSourceInput" });
+export type UpdateSearchSourceInput = Static<typeof UpdateSearchSourceInput>;
+
+export const AssetList = Type.Object({ items: Type.Array(schemaRef(Asset)), nextCursor: Type.Union([Type.String(), Type.Null()]) }, { $id: "#/components/schemas/AssetList" });
+export type AssetList = Static<typeof AssetList>;
+
+// 资产库是现有 assets/outputs/model_portraits/layer_exports 四张表的全局只读视图：
+// id 用 source 前缀合成（asset:|output:|model:|layer:<exportId>:<index>），物理文件仍归各自项目所有；
+// 生成项没有 mime_type/original_name，由 storyboard 展示名与扩展名派生。
+export const LibraryAsset = Type.Object({
+  id: Type.String({ description: "Synthetic library item ID: 'asset:<uuid>', 'output:<uuid>', 'model:<portraitUuid>' or 'layer:<layerExportUuid>:<index>'." }),
+  source: schemaRef(LibraryItemSource),
+  kind: schemaRef(LibraryItemKind),
+  name: Type.String(),
+  projectId: Type.String({ description: "Owning project UUID; empty for model portraits, which belong to no project and are therefore excluded by the projectId filter." }),
+  projectName: Type.String(),
+  mimeType: Type.String(),
+  hash: Type.String(),
+  width: Type.Optional(Type.Union([Type.Integer(), Type.Null()])),
+  height: Type.Optional(Type.Union([Type.Integer(), Type.Null()])),
+  url: Type.String(),
+  thumbnailUrl: Type.String(),
+  createdAt: Type.String({ format: "date-time" }),
+  role: Type.Optional(Type.Union([schemaRef(AssetRole), Type.Null()], { description: "AssetRole of uploaded assets; null for generated results, layer slices and model portraits." })),
+}, { $id: "#/components/schemas/LibraryAsset" });
+export type LibraryAsset = Static<typeof LibraryAsset>;
+
+export const LibraryAssetList = Type.Object({ items: Type.Array(schemaRef(LibraryAsset)), nextCursor: Type.Union([Type.String(), Type.Null()]), total: Type.Integer({ minimum: 0, description: "Item count after applying filters to source rows and deduplicating by content hash; independent of the current page cursor." }) }, { $id: "#/components/schemas/LibraryAssetList" });
+export type LibraryAssetList = Static<typeof LibraryAssetList>;
+
+export const CreateProviderInput = Type.Object({ name: Type.String({ minLength: 1 }), baseUrl: Type.String({ format: "uri" }), reasoningProtocol: Type.Union([Type.Literal("openai"), Type.Literal("dashscope_qwen"), Type.Literal("openai_responses")]), apiKey: Type.String({ minLength: 1 }), models: Type.Array(schemaRef(ModelCapability), { minItems: 1 }) }, { $id: "#/components/schemas/CreateProviderInput" });
+export type CreateProviderInput = Static<typeof CreateProviderInput>;
+
+export const EditTurn = Type.Object({ id: Type.String({ format: "uuid" }), sessionId: Type.String({ format: "uuid" }), projectId: Type.String({ format: "uuid" }), baseOutputId: Type.String({ format: "uuid" }), status: schemaRef(EditTurnStatus), recoveryJobId: Type.Optional(Type.String({ format: "uuid" })), message: Type.String(), annotations: Type.Record(Type.String(), Type.Unknown()), editMaskPath: Type.Optional(Type.Union([Type.String(), Type.Null()])), protectMaskPath: Type.Optional(Type.Union([Type.String(), Type.Null()])), referenceAssetIds: Type.Array(Type.String({ format: "uuid" })), referenceSelections: Type.Array(schemaRef(ReferenceSelection)), plan: Type.Optional(Type.Union([Type.Object({ operation: Type.Optional(schemaRef(EditOperation)), executionMode: Type.Optional(schemaRef(EditExecutionMode)), userSummary: Type.Optional(Type.String()), prompt: Type.Optional(Type.String()), targetAnnotationIds: Type.Optional(Type.Array(Type.String())), targetDescription: Type.Optional(Type.String()), targetConfidence: Type.Optional(Type.Number({ minimum: 0, maximum: 1 })), clarification: Type.Optional(Type.Union([Type.String(), Type.Null()])), requiresConfirmation: Type.Optional(Type.Boolean()), compositePolicy: Type.Optional(schemaRef(CompositePolicy)), memoryPatch: Type.Optional(Type.Record(Type.String(), Type.Unknown())) }), Type.Null()])), error: Type.Optional(Type.Union([Type.Record(Type.String(), Type.Unknown()), Type.Null()])), createdAt: Type.String({ format: "date-time" }), updatedAt: Type.String({ format: "date-time" }) }, { $id: "#/components/schemas/EditTurn" });
+export type EditTurn = Static<typeof EditTurn>;
+
+export const ExportJobBundle = Type.Object({ job: schemaRef(Job), export: Type.Union([schemaRef(Export), Type.Null()]) }, { $id: "#/components/schemas/ExportJobBundle" });
+export type ExportJobBundle = Static<typeof ExportJobBundle>;
+
+// AI 分层导出：plan 用视觉模型识别元素清单（按 output 内容 hash 缓存），
+// export 阶段才做像素级分割与 PSD 组装；REST 是状态真相，事件只用于失效通知。
+export const LayerBbox = Type.Object({ x: Type.Number({ minimum: 0, maximum: 1 }), y: Type.Number({ minimum: 0, maximum: 1 }), width: Type.Number({ exclusiveMinimum: 0, maximum: 1 }), height: Type.Number({ exclusiveMinimum: 0, maximum: 1 }) }, { $id: "#/components/schemas/LayerBbox", description: "Normalized bounding box relative to the output image." });
+export type LayerBbox = Static<typeof LayerBbox>;
+
+export const LayerPlanElement = Type.Object({ id: Type.String({ description: "Stable element ID inside the plan; manual elements reuse the client-provided ID." }), name: Type.String({ description: "Editable element display name." }), promptEn: Type.Optional(Type.String({ description: "English segmentation prompt recognized with the element; used by text-prompt-only segmentation channels such as Gitee AI SAM 3." })), source: Type.Union([Type.Literal("auto"), Type.Literal("manual")]), bbox: Type.Optional(Type.Union([schemaRef(LayerBbox), Type.Null()])) }, { $id: "#/components/schemas/LayerPlanElement" });
+export type LayerPlanElement = Static<typeof LayerPlanElement>;
+
+export const LayerPlan = Type.Object({ id: Type.String({ format: "uuid" }), projectId: Type.String({ format: "uuid" }), outputId: Type.String({ format: "uuid" }), jobId: Type.String({ format: "uuid" }), outputHash: Type.String({ description: "Content hash of the output image; the plan is reused while this matches the current output and the reasoning model snapshot." }), status: Type.Union([Type.Literal("QUEUED"), Type.Literal("RUNNING"), Type.Literal("SUCCEEDED"), Type.Literal("FAILED"), Type.Literal("CANCELLED"), Type.Literal("UNKNOWN")]), elements: Type.Array(schemaRef(LayerPlanElement)), error: Type.Optional(Type.Union([Type.Record(Type.String(), Type.Unknown()), Type.Null()])), createdAt: Type.String({ format: "date-time" }), updatedAt: Type.String({ format: "date-time" }) }, { $id: "#/components/schemas/LayerPlan" });
+export type LayerPlan = Static<typeof LayerPlan>;
+
+export const LayerExportLayerFile = Type.Object({ name: Type.String(), kind: Type.Union([Type.Literal("element"), Type.Literal("background"), Type.Literal("composite")]), downloadUrl: Type.String() }, { $id: "#/components/schemas/LayerExportLayerFile" });
+export type LayerExportLayerFile = Static<typeof LayerExportLayerFile>;
+
+export const LayerExport = Type.Object({ id: Type.String({ format: "uuid" }), projectId: Type.String({ format: "uuid" }), outputId: Type.String({ format: "uuid" }), jobId: Type.String({ format: "uuid" }), planId: Type.Optional(Type.Union([Type.String({ format: "uuid" }), Type.Null()])), status: Type.Union([Type.Literal("QUEUED"), Type.Literal("RUNNING"), Type.Literal("SUCCEEDED"), Type.Literal("FAILED"), Type.Literal("CANCELLED"), Type.Literal("UNKNOWN")]), includeBackground: Type.Boolean({ description: "Whether a background layer is produced under the element layers: Seedream uses its inpainted base image; SAM protocols use the original image with the element selections cut out (holed)." }), psdStoragePath: Type.Optional(Type.Union([Type.String(), Type.Null()])), psdDownloadUrl: Type.Optional(Type.Union([Type.String(), Type.Null()])), layerFiles: Type.Optional(Type.Union([Type.Array(schemaRef(LayerExportLayerFile)), Type.Null()])), error: Type.Optional(Type.Union([Type.Record(Type.String(), Type.Unknown()), Type.Null()])), createdAt: Type.String({ format: "date-time" }), updatedAt: Type.String({ format: "date-time" }) }, { $id: "#/components/schemas/LayerExport" });
+export type LayerExport = Static<typeof LayerExport>;
+
+export const LayerExportBundle = Type.Object({ job: schemaRef(Job), layerExport: schemaRef(LayerExport) }, { $id: "#/components/schemas/LayerExportBundle" });
+export type LayerExportBundle = Static<typeof LayerExportBundle>;
+
+export const LayerExportHistory = Type.Object({ exports: Type.Array(schemaRef(LayerExport), { description: "Layer exports of the output, newest first. Earlier records stay viewable and downloadable after a newer export replaces the latest one." }) }, { $id: "#/components/schemas/LayerExportHistory" });
+export type LayerExportHistory = Static<typeof LayerExportHistory>;
+
+// Provider 可随时删除（生成时才真正使用）：引用它的项目置为 null，进入"待重新选择模型"状态；
+// 创建项目时仍必须提供有效的模型对（见 CreateProjectInput）。
+export const Project = Type.Object({ id: Type.String({ format: "uuid" }), name: Type.String(), category: Type.Optional(Type.Union([Type.String(), Type.Null()])), productDescription: Type.Optional(Type.Union([Type.String(), Type.Null()])), verifiedFacts: Type.Optional(Type.Array(Type.String())), prohibitedClaims: Type.Optional(Type.Array(Type.String())), brandGuidelines: Type.Optional(Type.Record(Type.String(), Type.Unknown())), platformTargets: Type.Array(Type.Union([Type.Literal("TAOBAO"), Type.Literal("JD"), Type.Literal("PDD"), Type.Literal("DOUYIN"), Type.Literal("AMAZON"), Type.Literal("SHOPIFY")]), { maxItems: 1 }), targetMarket: Type.Union([Type.Literal("CHINA_MAINLAND"), Type.Literal("HONG_KONG"), Type.Literal("MACAU"), Type.Literal("TAIWAN"), Type.Literal("UNITED_STATES"), Type.Literal("UNITED_KINGDOM"), Type.Literal("GERMANY"), Type.Literal("FRANCE"), Type.Literal("ITALY"), Type.Literal("SPAIN"), Type.Literal("JAPAN"), Type.Literal("SOUTH_KOREA"), Type.Null()]), copyLanguage: Type.Union([Type.String({ minLength: 1, maxLength: 64 }), Type.Null()]), promptLanguage: schemaRef(PromptLanguage, { description: "Language of the final image-generation prompts produced by planning." }), reasoningProviderId: Type.Union([Type.String({ format: "uuid" }), Type.Null()]), reasoningModelId: Type.Union([Type.String(), Type.Null()]), imageProviderId: Type.Union([Type.String({ format: "uuid" }), Type.Null()]), imageModelId: Type.Union([Type.String(), Type.Null()]), segmentationModel: Type.Optional(Type.Union([schemaRef(SegmentationModelRef), Type.Null()])), defaultMode: Type.Union([Type.Literal("CREATIVE"), Type.Literal("PIXEL_PROTECTED")]), imageResolution: schemaRef(ImageResolution), imageAspectRatio: schemaRef(ImageAspectRatio), candidatesPerType: Type.Integer({ minimum: 1, maximum: 4 }), webResearchEnabled: Type.Boolean({ description: "Enable restricted visual-direction web research during Agent planning." }), archivedAt: Type.Optional(Type.Union([Type.String({ format: "date-time" }), Type.Null()])), planningRevision: Type.Optional(Type.Integer({ minimum: 0, description: "Monotonic revision bumped whenever planning-relevant project facts change; planning jobs embed it in their fingerprint so stale plans are never reused." })), createdAt: Type.String({ format: "date-time" }), updatedAt: Type.String({ format: "date-time" }), cover: Type.Optional(schemaRef(ProjectCover)) }, { $id: "#/components/schemas/Project" });
+export type Project = Static<typeof Project>;
+
+export const ProviderConfig = Type.Object({ id: Type.String({ format: "uuid" }), name: Type.String(), baseUrl: Type.String({ format: "uri" }), reasoningProtocol: Type.Union([Type.Literal("openai"), Type.Literal("dashscope_qwen"), Type.Literal("openai_responses")]), hasApiKey: Type.Boolean(), models: Type.Array(schemaRef(ModelCapability)), createdAt: Type.String({ format: "date-time" }), updatedAt: Type.String({ format: "date-time" }) }, { $id: "#/components/schemas/ProviderConfig" });
+export type ProviderConfig = Static<typeof ProviderConfig>;
+
+export const SearchSourceList = Type.Object({ items: Type.Array(schemaRef(SearchSourceConfig)), nextCursor: Type.Union([Type.String(), Type.Null()]) }, { $id: "#/components/schemas/SearchSourceList" });
+export type SearchSourceList = Static<typeof SearchSourceList>;
+
+export const Storyboard = Type.Object({ projectId: Type.String({ format: "uuid" }), version: Type.Integer({ minimum: 1 }), status: Type.Union([Type.Literal("DRAFT"), Type.Literal("CONFIRMED")]), campaignStyleLock: Type.String(), items: Type.Optional(Type.Array(schemaRef(StoryboardItem))) }, { $id: "#/components/schemas/Storyboard" });
+export type Storyboard = Static<typeof Storyboard>;
+
+export const StoryboardBundle = Type.Object({ storyboard: Type.Union([Type.Record(Type.String(), Type.Unknown()), Type.Null()]), items: Type.Array(schemaRef(StoryboardItem)) }, { $id: "#/components/schemas/StoryboardBundle" });
+export type StoryboardBundle = Static<typeof StoryboardBundle>;
+
+export const UpdateProjectInput = Type.Object({ name: Type.Optional(Type.String({ minLength: 1 })), category: Type.Optional(Type.Union([Type.String(), Type.Null()])), productDescription: Type.Optional(Type.Union([Type.String(), Type.Null()])), verifiedFacts: Type.Optional(Type.Array(Type.String())), prohibitedClaims: Type.Optional(Type.Array(Type.String())), brandGuidelines: Type.Optional(Type.Record(Type.String(), Type.Unknown())), platformTargets: Type.Optional(Type.Array(Type.Union([Type.Literal("TAOBAO"), Type.Literal("JD"), Type.Literal("PDD"), Type.Literal("DOUYIN"), Type.Literal("AMAZON"), Type.Literal("SHOPIFY")]), { maxItems: 1 })), targetMarket: Type.Optional(Type.Union([Type.Literal("CHINA_MAINLAND"), Type.Literal("HONG_KONG"), Type.Literal("MACAU"), Type.Literal("TAIWAN"), Type.Literal("UNITED_STATES"), Type.Literal("UNITED_KINGDOM"), Type.Literal("GERMANY"), Type.Literal("FRANCE"), Type.Literal("ITALY"), Type.Literal("SPAIN"), Type.Literal("JAPAN"), Type.Literal("SOUTH_KOREA"), Type.Null()])), copyLanguage: Type.Optional(Type.Union([Type.String({ minLength: 1, maxLength: 64 }), Type.Null()])), promptLanguage: Type.Optional(schemaRef(PromptLanguage)), reasoningModel: Type.Optional(schemaRef(ModelRef)), imageModel: Type.Optional(schemaRef(ModelRef)), segmentationModel: Type.Optional(Type.Union([schemaRef(SegmentationModelRef), Type.Null()])), defaultMode: Type.Optional(Type.Union([Type.Literal("CREATIVE"), Type.Literal("PIXEL_PROTECTED")])), imageResolution: Type.Optional(schemaRef(ImageResolution)), imageAspectRatio: Type.Optional(schemaRef(ImageAspectRatio)), candidatesPerType: Type.Optional(Type.Integer({ minimum: 1, maximum: 4 })), webResearchEnabled: Type.Optional(Type.Boolean({ description: "Enable restricted visual-direction web research during Agent planning." })), archived: Type.Optional(Type.Boolean({ description: "Archive or restore the project." })) }, { $id: "#/components/schemas/UpdateProjectInput" });
+export type UpdateProjectInput = Static<typeof UpdateProjectInput>;
+
+export const UpdateStoryboardItemInput = Type.Object({ assetType: Type.Optional(Type.String({ description: "Immutable ecom-details-image template ID; it cannot be changed after planning." })), displayName: Type.Optional(Type.String()), templateVariant: Type.Optional(Type.Union([Type.String(), Type.Null()])), candidateCount: Type.Optional(Type.Integer({ minimum: 1, maximum: 4 })), imageModel: Type.Optional(schemaRef(ModelRef)), imageResolution: Type.Optional(schemaRef(ImageResolution)), imageAspectRatio: Type.Optional(schemaRef(ImageAspectRatio)), referencedAssets: Type.Optional(Type.Array(Type.String({ format: "uuid" }))), mode: Type.Optional(Type.Union([Type.Literal("CREATIVE"), Type.Literal("PIXEL_PROTECTED")])), promptInstruction: Type.Optional(Type.String({ description: "Editable final image-generation prompt. Must keep instructing the image model to preserve exact product identity. Worker prefixes selected image roles in their actual request order before sending it to the image model.", maxLength: 4000 })) }, { $id: "#/components/schemas/UpdateStoryboardItemInput" });
+export type UpdateStoryboardItemInput = Static<typeof UpdateStoryboardItemInput>;
+
+export const ProjectDetail = Type.Intersect([schemaRef(Project), Type.Object({ assets: Type.Array(schemaRef(Asset)), storyboard: Type.Union([Type.Record(Type.String(), Type.Unknown()), Type.Null()]), items: Type.Array(schemaRef(StoryboardItem)), outputs: Type.Array(schemaRef(Output)), jobs: Type.Array(schemaRef(Job)) })], { $id: "#/components/schemas/ProjectDetail" });
+export type ProjectDetail = Static<typeof ProjectDetail>;
+
+export const ProjectList = Type.Object({ items: Type.Array(Type.Intersect([schemaRef(Project), Type.Record(Type.String(), Type.Unknown())])), nextCursor: Type.Union([Type.String(), Type.Null()]) }, { $id: "#/components/schemas/ProjectList" });
+export type ProjectList = Static<typeof ProjectList>;
+
+export const ProviderList = Type.Object({ items: Type.Array(schemaRef(ProviderConfig)), nextCursor: Type.Union([Type.String(), Type.Null()]) }, { $id: "#/components/schemas/ProviderList" });
+export type ProviderList = Static<typeof ProviderList>;
+
+// 更新为部分语义：省略的字段保留原值；apiKey 留空（省略）表示不更换密钥，避免仅改配置也必须重输密钥。
+export const UpdateProviderInput = Type.Object(
+  {
+    name: Type.Optional(Type.String({ minLength: 1 })),
+    baseUrl: Type.Optional(Type.String({ format: "uri" })),
+    reasoningProtocol: Type.Optional(
+      Type.Union([Type.Literal("openai"), Type.Literal("dashscope_qwen"), Type.Literal("openai_responses")]),
+    ),
+    apiKey: Type.Optional(Type.String({ minLength: 1 })),
+    models: Type.Optional(
+      Type.Array(schemaRef(ModelCapability), { minItems: 1 }),
+    ),
+  },
+  { $id: "#/components/schemas/UpdateProviderInput" },
+);
+export type UpdateProviderInput = Static<typeof UpdateProviderInput>;

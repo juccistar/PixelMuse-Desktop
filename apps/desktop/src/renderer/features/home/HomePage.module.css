@@ -1,0 +1,24 @@
+.page { position: relative; display: flex; flex-direction: column; min-height: 100vh; }
+.main { flex: 1; width: 100%; max-width: 1680px; margin: 0 auto; padding: 0 clamp(24px, 4vw, 64px) 48px; }
+.hero { position: relative; padding: 54px 220px 38px 0; border-bottom: 1px solid var(--line-1); }
+.eyebrow { margin: 0 0 18px; font-family: var(--font-mono); font-size: 10px; letter-spacing: .16em; color: var(--text-3); }
+.headline { margin: 0; font-size: clamp(28px, 2.8vw, 42px); line-height: 1.3; font-weight: 650; letter-spacing: -.035em; color: var(--text-1); }
+.lede { margin: 16px 0 0; max-width: 60ch; color: var(--text-2); font-size: 13px; line-height: 1.9; }
+.ctaRow { position: absolute; right: 0; top: 92px; display: flex; gap: 12px; }
+.gallery { display: flex; min-width: 0; flex-direction: column; padding: 28px 0; }
+.grid { display: grid; min-width: 0; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); align-content: start; gap: 20px; width: 100%; }
+.galleryHeader { display: flex; align-items: center; justify-content: space-between; gap: 16px; width: 100%; margin-bottom: 24px; }
+.galleryHeader > div { display: flex; align-items: baseline; gap: 14px; }
+.galleryHeader .galleryTitle, .galleryHeader .galleryHint { margin: 0; }
+.archiveGrid { display: grid; gap: 16px; }
+.archiveDrawer :global(.ant-drawer-content), .archiveDrawer :global(.ant-drawer-header) { background: var(--bg-1); }
+.archiveDrawer :global(.ant-drawer-body) { padding: 20px; }
+.galleryInner { width: 100%; min-height: 310px; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 1px dashed var(--line-2); border-radius: var(--radius-m); padding: 44px 24px; background: var(--bg-1); text-align: center; }
+.galleryIcon { color: var(--text-3); }
+.galleryTitle { margin: 18px 0 0; font-size: 16px; font-weight: 550; color: var(--text-1); }
+.galleryHint { margin: 8px 0 0; color: var(--text-3); font-size: 11px; }
+@media (max-width: 1180px) {
+  .hero { padding: 36px 0 28px; }
+  .ctaRow { position: static; margin-top: 24px; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
+}

@@ -1,0 +1,4124 @@
+/* 商品准备按 v2 分为素材与完整配置；这些规则不影响规划/成图工作区。 */
+.preparationWorkspace { display: flex; flex: 1; flex-direction: column; min-height: 0; background: var(--bg-0); }
+.preparationColumns { display: grid; grid-template-columns: minmax(0, 1.52fr) minmax(370px, 1fr); align-items: start; gap: 18px; flex: 1; min-height: 0; overflow: auto; padding: 22px; }
+.preparationMedia, .preparationConfig { min-width: 0; }
+.preparationIntro { margin: 0 0 22px; }
+.preparationIntro h1 { margin: 0 0 6px; color: var(--text-1); font-size: clamp(24px, 2.2vw, 32px); font-weight: 650; line-height: 1.35; }
+.preparationIntro p { margin: 0; color: var(--text-2); font-size: 15px; }
+.preparationAssets { display: flex; flex-direction: column; gap: 16px; }
+.preparationAssetSection { padding: 16px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--bg-1); }
+.preparationAssetSection[data-over="true"] { border-color: var(--accent); background: var(--bg-2); }
+.preparationAssetHeader { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.preparationAssetHeader h2 { margin: 0; color: var(--text-1); font-size: 19px; white-space: nowrap; }
+.preparationAssetHeader > span { color: var(--text-2); font-size: 12px; }
+.preparationAssetHeader > button { margin-left: auto; flex-shrink: 0; }
+.preparationAssetGrid { display: grid; gap: 8px; grid-template-columns: 1.65fr 1fr 1fr; grid-auto-rows: clamp(120px, 12vw, 175px); }
+.preparationAssetGrid[data-kind="PRODUCT"] > .preparationAssetCard:first-child { grid-row: span 2; }
+.preparationAssetGrid[data-kind="REFERENCE"] { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: clamp(140px, 14vw, 220px); }
+.preparationAssetGrid[data-empty="true"] { grid-template-columns: 1fr; grid-auto-rows: 250px; }
+.preparationAssetGrid[data-kind="REFERENCE"][data-empty="true"] { grid-auto-rows: 190px; }
+.preparationAssetCard { position: relative; min-width: 0; min-height: 0; overflow: hidden; border-radius: 8px; background: var(--bg-2); }
+.preparationAssetCard :global(.ant-image) { display: block; width: 100%; height: 100%; }
+.preparationAssetCard :global(.ant-image-img) { display: block; width: 100%; height: 100%; object-fit: cover; }
+.preparationAssetCard:hover .assetDelete, .preparationAssetCard:focus-within .assetDelete { opacity: 1; }
+.preparationUpload { position: relative; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 10px; min-height: 120px; border: 1px dashed var(--line-2); border-radius: 8px; color: var(--text-2); cursor: pointer; }
+.preparationUpload:hover { border-color: var(--text-2); background: var(--bg-2); }
+.preparationUpload small { color: var(--text-3); text-align: center; }
+.preparationReferenceNote { display: flex; align-items: center; gap: 7px; margin-top: 12px; font-size: 12px; color: var(--text-2); }
+.preparationReferenceNote svg { flex-shrink: 0; }
+.preparationReferenceNote button { margin-left: auto; padding: 0; border: 0; background: transparent; font: inherit; color: var(--text-2); cursor: pointer; }
+.preparationConfig { border: 1px solid var(--line-2); border-radius: 12px; background: var(--bg-1); }
+.preparationSetup { gap: 0 !important; }
+.preparationConfigHeader { padding: 17px 20px; border-bottom: 1px solid var(--line-1); }
+.preparationConfigHeader h2 { margin: 0; font-size: 23px; font-weight: 600; color: var(--text-1); }
+.preparationConfigBody { padding: 16px 20px 20px; }
+.preparationConfigBody h3 { margin: 0 0 12px; font-size: 16px; font-weight: 600; color: var(--text-1); }
+.preparationProduct { display: grid; gap: 12px; padding-bottom: 18px; border-bottom: 1px solid var(--line-1); }
+.preparationProduct h3 { margin-bottom: 0; }
+.preparationDemand { padding-top: 16px; }
+.preparationCounts, .preparationQuickConfig { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.preparationCounts :global(.ant-input-number) { width: 100%; }
+.preparationQuickConfig { padding: 12px 0; border-bottom: 1px solid var(--line-1); }
+.preparationQuickConfig .fieldLabelTitle svg { display: none; }
+.preparationSku { display: flex; align-items: center; gap: 15px; padding: 12px 0; border-bottom: 1px solid var(--line-1); font-size: 12px; color: var(--text-2); }
+.preparationSku strong { color: var(--text-1); }
+.preparationSku button { margin-left: auto; }
+.preparationSetup .section { padding: 13px 0; border: 0; border-bottom: 1px solid var(--line-1); background: transparent; border-radius: 0; }
+.preparationSetup .sectionHead { font-size: 15px; }
+.preparationSetup .sectionBody[hidden] { display: none; }
+.preparationSetup .kindToggle { gap: 0; border: 1px solid var(--line-2); border-radius: 6px; overflow: hidden; margin-bottom: 6px; }
+.preparationSetup .kindToggle button { padding: 8px 4px; border: 0; border-radius: 0; background: transparent; font-size: 12px; }
+.preparationSetup .kindToggle button[data-active="true"] { background: var(--text-1); color: var(--bg-0); }
+.preparationSetup .snapshotTrigger { display: flex; margin: 14px 0 0 auto; }
+.preparationFooterHost { flex-shrink: 0; }
+.preparationFooter { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 15px 24px; border-top: 1px solid var(--line-2); background: var(--bg-1); }
+.preparationFooter strong { font-size: 16px; color: var(--text-1); }
+.preparationFooter p { margin: 5px 0 0; color: var(--text-2); font-size: 12px; }
+.preparationFooterActions { display: flex; gap: 8px; flex-shrink: 0; }
+.preparationFooterActions > button:last-child { min-width: 190px; height: 46px; font-size: 18px; font-weight: 600; }
+@media (max-width: 1120px) { .preparationColumns { grid-template-columns: minmax(0, 1fr) minmax(330px, .9fr); padding: 16px; gap: 14px; } .preparationAssetHeader { flex-wrap: wrap; gap: 8px; } .preparationAssetHeader > span { font-size: 11px; } .preparationConfigBody { padding: 14px; } .preparationAssetGrid { grid-template-columns: 1.3fr 1fr; } }
+@media (max-width: 840px) { .preparationColumns { grid-template-columns: 1fr; } .preparationAssetGrid { grid-template-columns: 1.65fr 1fr 1fr; } .preparationFooter { padding: 12px 16px; } .preparationFooter strong { font-size: 13px; } .preparationFooterActions > button:last-child { min-width: 135px; font-size: 15px; } }
+
+.page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.brandLink,
+.homeLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text-2);
+  text-decoration: none;
+}
+
+.projectName {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-1);
+  font-family: var(--font-display);
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panelToggle {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  flex: none;
+  padding: 0;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.panelToggle:hover {
+  border-color: var(--line-1);
+  background: var(--bg-2);
+  color: var(--text-1);
+}
+
+.panelToggle:focus-visible {
+  outline: 2px solid var(--accent-hover);
+  outline-offset: 1px;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: 352px minmax(0, 1fr);
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.shell[data-collapsed="true"] {
+  grid-template-columns: 56px minmax(0, 1fr);
+}
+
+.shell[data-view="storyboard"][data-collapsed],
+.shell[data-view="results"][data-collapsed] {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.left,
+.preview {
+  min-width: 0;
+  min-height: 0;
+  padding: 16px;
+}
+
+.setupPreview {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: clamp(24px, 5vw, 64px) clamp(4px, 3vw, 32px);
+}
+
+.previewHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--accent);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.previewCount {
+  flex: none;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.left {
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  border-right: 1px solid var(--line-1);
+  background: var(--bg-1);
+}
+
+.left[hidden] { display: none; }
+
+.left[data-collapsed="true"] {
+  padding: 16px 12px;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  height: 100%;
+  padding-top: 2px;
+  animation: railIn 160ms ease-out;
+}
+
+@keyframes railIn {
+  from {
+    opacity: 0;
+  }
+}
+
+.railExpand {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  padding: 0;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.railExpand:hover {
+  border-color: var(--accent-line);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.railExpand:focus-visible {
+  outline: 2px solid var(--accent-hover);
+  outline-offset: 1px;
+}
+
+.railLabel {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  writing-mode: vertical-rl;
+}
+
+.preview {
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  background: var(--bg-0);
+}
+
+.setup {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.setup :global(.ant-select),
+.setup :global(.ant-input-affix-wrapper),
+.setup :global(textarea.ant-input) {
+  width: 100%;
+}
+
+.aiTextArea {
+  position: relative;
+}
+
+.aiTextArea :global(textarea.ant-input) {
+  padding-bottom: 40px;
+}
+
+.aiWriteTooltip {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 1;
+}
+
+.aiWriteButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 28px;
+  padding: 4px 9px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-s);
+  background: var(--bg-1);
+  color: var(--text-1);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.aiWriteButton:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.aiWriteButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.kindToggle {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.kindToggle button {
+  padding: 10px 12px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-s);
+  background: var(--bg-2);
+  color: var(--text-2);
+  font: inherit;
+  cursor: pointer;
+}
+
+.kindToggle button[data-active="true"] {
+  border-color: var(--accent-line);
+  background: var(--accent-subtle);
+  color: var(--text-1);
+}
+
+.paramGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0 0;
+  color: var(--text-2);
+}
+
+.stepper button {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-s);
+  background: var(--bg-2);
+  color: var(--text-1);
+  cursor: pointer;
+}
+
+.stepper button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.assetGridCompact {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.resultsToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* 导出弹窗：左侧选项、右侧长图拼接顺序预览（Canva 式导出对话框布局），屏幕间隙对应导出时的 divider。 */
+.exportDialog {
+  display: flex;
+  gap: 20px;
+  align-items: stretch;
+}
+
+.exportDialogForm {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.exportDialogModes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exportModeTitle {
+  display: block;
+  color: var(--text-1);
+}
+
+.exportModeDesc {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.exportDialogFields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.exportDialogField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.exportDialogLabel {
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.exportDialogHint {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.exportDialogPreview {
+  flex: 0 0 128px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.exportDialogScreens {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: min(520px, 62vh);
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-s);
+  background: var(--bg-1);
+  scrollbar-gutter: stable;
+  /* 弹层底色为 bg-3，全局滚动条 thumb 同为 bg-3 会隐形，这里单独提亮（与 snapshotList 同口径） */
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-2) transparent;
+}
+
+.exportDialogScreens::-webkit-scrollbar {
+  width: 8px;
+}
+
+.exportDialogScreens::-webkit-scrollbar-thumb {
+  background: var(--line-2);
+  border-radius: 8px;
+}
+
+.exportDialogScreens::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.exportDialogScreen {
+  position: relative;
+  margin: 0;
+  /* 滚动列里的 flex 子项默认 flex-shrink: 1，超高时会被压扁而不是触发滚动 */
+  flex-shrink: 0;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-s);
+  overflow: hidden;
+  background: var(--bg-0);
+  cursor: grab;
+  /* 指针拖拽接管触摸手势（桌面优先，箭头按钮始终可用） */
+  touch-action: none;
+}
+
+.exportDialogScreens[data-sorting="true"] {
+  cursor: grabbing;
+  user-select: none;
+}
+
+.exportDialogScreenPlaceholder {
+  flex-shrink: 0;
+  border: 1.5px dashed var(--accent-line);
+  border-radius: var(--radius-s);
+  background: var(--accent-subtle);
+}
+
+.exportDialogScreen[data-hidden="true"] {
+  display: none;
+}
+
+.exportDialogScreen img {
+  display: block;
+  width: 100%;
+}
+
+.exportDialogScreenIndex {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 10px;
+  line-height: 15px;
+  color: var(--text-2);
+  background: color-mix(in srgb, var(--bg-0) 76%, transparent);
+}
+
+.exportDialogScreenTools {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.exportDialogScreenTools button {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--bg-0) 76%, transparent);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.exportDialogScreenTools button:hover:not(:disabled) {
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.exportDialogScreenTools button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.sectionTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: var(--text-2);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.researchControl {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-s);
+  background: var(--bg-1);
+}
+
+.researchLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-1);
+  font-size: 13px;
+}
+
+.researchHint,
+.researchUnavailable {
+  margin: 4px 0 0;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.researchUnavailable {
+  color: var(--warning, #a76b00);
+}
+
+.sectionTitleIcon {
+  flex: none;
+  color: var(--text-3);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-m);
+  background: var(--bg-2);
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.sectionHeadLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.sectionHead:hover {
+  color: var(--text-1);
+  background: var(--bg-3);
+}
+
+.sectionChevron {
+  flex: none;
+  color: var(--text-3);
+  transition: transform 0.15s ease;
+}
+
+.sectionChevron[data-open="false"] {
+  transform: rotate(-90deg);
+}
+
+.sectionBody {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 0 12px 12px;
+}
+
+.sectionBody .fieldLabel:first-child {
+  margin-top: 0;
+}
+
+.sectionBody .kindToggle {
+  margin-bottom: 8px;
+}
+
+.spuName {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 400;
+}
+
+.spuMeta {
+  margin: 0 0 20px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.nameInput {
+  margin-bottom: 0;
+}
+
+.compactFields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.compactFields .fieldLabel {
+  margin: 0;
+}
+
+.fieldLabelTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-2);
+}
+
+.compactFields :global(.ant-select),
+.compactFields :global(.ant-select-auto-complete) {
+  width: 100%;
+}
+
+.variantList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.variantItem {
+  padding: 10px 12px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-s);
+  background: var(--bg-2);
+}
+
+.variantName {
+  color: var(--text-1);
+}
+
+.variantAttr {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.addRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 280px;
+  color: var(--text-3);
+}
+
+.placeholder h2 {
+  margin: 0 0 8px;
+  color: var(--text-1);
+  font-size: 22px;
+  font-weight: 400;
+}
+
+.inspector p {
+  margin: 0 0 10px;
+  color: var(--text-2);
+}
+
+.dropzone {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 28px 24px;
+  border: 1px dashed var(--line-2);
+  border-radius: var(--radius-m);
+  background: var(--bg-1);
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.dropzone[data-over="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-1));
+}
+
+.fileInput {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.dropTitle {
+  margin: 0;
+  color: var(--text-1);
+  font-size: 15px;
+}
+
+.dropHint {
+  margin: 0;
+  max-width: 42ch;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.uploadMeta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 16px 0 24px;
+}
+
+.groupBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-m);
+  background: var(--bg-1);
+}
+
+.groupBlock+.groupBlock {
+  margin-top: 24px;
+}
+
+.groupHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.groupIcon {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  place-items: center;
+  border-radius: var(--radius-s);
+  background: var(--bg-2);
+  color: var(--text-3);
+}
+
+.groupBlock[data-kind="PRODUCT"] .groupIcon {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.groupTitle {
+  color: var(--text-1);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.groupCount {
+  min-width: 20px;
+  padding: 0 7px;
+  border: 1px solid var(--line-1);
+  border-radius: 999px;
+  background: var(--bg-2);
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.groupHint {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.assetGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  /* 离屏跳过渲染（文档 10）；占位尺寸防 CLS */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 480px;
+}
+
+.setupPreview :global(.ant-upload-wrapper) {
+  max-width: 720px;
+}
+
+.setupPreview .dropzone {
+  min-height: 160px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.setupPreview .assetGrid {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+}
+
+.assetCard {
+  overflow: hidden;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-m);
+  background: var(--bg-2);
+  transition: border-color 150ms ease;
+}
+
+.assetCard:hover {
+  border-color: var(--line-2);
+}
+
+.thumbWrap {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1;
+  background: var(--bg-3);
+}
+
+.thumb,
+.thumbWrap :global(.ant-image),
+.thumbWrap :global(.ant-image-img),
+.thumbWrap :global(img) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.shield {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: var(--accent);
+}
+
+.assetDelete {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-s);
+  background: color-mix(in srgb, var(--bg-0) 85%, transparent);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.assetDelete:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.assetMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+}
+
+.assetRole {
+  color: var(--text-1);
+}
+
+.assetOwner,
+.assetSize {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+/* 行内「上传记录」入口：需浮在透明 file input 之上才可点击 */
+.historyLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin: 0 2px;
+  padding: 0 2px;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+}
+
+.historyLink:hover {
+  text-decoration: underline;
+}
+
+.historyHint {
+  margin: 0 0 12px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.historyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  margin: 0;
+  color: var(--text-3);
+  font-size: 13px;
+}
+
+.historyGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  max-height: 56vh;
+  overflow-y: auto;
+  /* 预留滚动条空间，避免与最后一列图片重叠 */
+  scrollbar-gutter: stable;
+  padding-right: 8px;
+}
+
+.historyItem {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-m);
+  background: var(--bg-2);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease;
+}
+
+.historyItem:hover {
+  border-color: var(--line-2);
+}
+
+.historyItem[data-selected="true"] {
+  border-color: var(--accent);
+}
+
+.historyThumbWrap {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1;
+  background: var(--bg-3);
+}
+
+.historyThumb {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.historyCheck {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-s);
+  background: var(--accent);
+  color: var(--bg-0);
+}
+
+.historyItem[data-selected="true"] .historyCheck {
+  display: inline-flex;
+}
+
+.historyMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+}
+
+.historyName {
+  overflow: hidden;
+  color: var(--text-1);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.historyDate {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.historyMore {
+  display: flex;
+  justify-content: center;
+  padding-top: 12px;
+}
+
+.historyToolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.historyToolbar :global(.ant-input-affix-wrapper) {
+  flex: 1;
+}
+
+.historyFilterRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.historyFilterSelect {
+  min-width: 172px;
+}
+
+/* 身份筛选一行五个维度：均分宽度而不是各自最小宽度，避免把弹窗撑出横向滚动。 */
+.historyIdentitySelect {
+  flex: 1;
+  min-width: 0;
+}
+
+.historyCount {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* 匹配数靠右：它不是筛选控件，放在行尾不打断从左到右的筛选顺序。 */
+.historyFilterRow .historyCount {
+  margin-left: auto;
+}
+
+.missing {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 48px;
+}
+
+.banner {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-s);
+  background: var(--accent-subtle);
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.planLayout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.planSplit {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(240px, 0.85fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.intent,
+.jobCard {
+  padding: 20px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-m);
+  background: var(--bg-1);
+}
+
+.jobCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 220px;
+}
+
+.jobCard h2,
+.intent h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 400;
+}
+
+.jobStatus {
+  margin: 0;
+  color: var(--accent);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+
+.jobError {
+  margin: 0;
+  color: var(--danger);
+  font-size: 13px;
+}
+
+.jobCard[data-status="FAILED"] {
+  position: relative;
+  min-height: 0;
+  padding: 14px 48px 14px 16px;
+  gap: 8px;
+}
+
+.jobActions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.jobDismiss {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  width: 28px;
+  height: 28px;
+  color: var(--text-2);
+}
+
+.jobDismiss:hover {
+  color: var(--text-1) !important;
+}
+
+.fieldLabel {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.assetTypeRow {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+  margin: 10px 0 2px;
+}
+
+.assetTypeTag {
+  margin: 0;
+  max-width: 100%;
+  overflow: hidden;
+  border-color: var(--line-2);
+  background: var(--bg-2);
+  color: var(--text-2);
+  font-size: 13px;
+  text-overflow: ellipsis;
+}
+
+.modalTitleButton {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+}
+
+.chipRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-height: 172px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.chip {
+  padding: 6px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.chip[data-on="true"] {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+  color: var(--text-1);
+}
+
+.chip[data-on="true"]::after {
+  content: "✓";
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--accent);
+}
+
+.suiteGroups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.suitePanelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.suitePanelTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.suitePanelTitle em {
+  font-style: normal;
+  font-size: 11px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.suiteGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.suiteGroup .chipRow {
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
+}
+
+.suiteGroupHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+.suiteGroupHead::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line-2);
+}
+
+.hint,
+.counter,
+.saveHint {
+  margin: 8px 0 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.paramGrid :global(.ant-select) {
+  width: 100%;
+}
+
+.boardWrap {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  padding-bottom: 88px;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 560px;
+}
+
+.board[data-locked="true"] {
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-m);
+  padding: 12px 12px 88px;
+}
+
+.shotCard {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  width: 100%;
+  padding: 0;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-m);
+  background: var(--bg-1);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.shotCard:hover {
+  border-color: var(--line-2);
+  background: var(--bg-2);
+}
+
+.shotCard:active {
+  transform: translateY(1px);
+}
+
+.shotCardWrap {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+}
+
+.shotPick {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--text-1) 20%, transparent);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg-0) 68%, transparent);
+  color: var(--bg-0);
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.shotPick:hover {
+  border-color: var(--accent-line);
+}
+
+.shotPick[aria-checked="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.shotPick:focus-visible {
+  outline: 2px solid var(--accent-hover);
+  outline-offset: 2px;
+}
+
+.shotDelete {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--line-1);
+  border-radius: 6px;
+  background: var(--bg-2);
+  color: var(--text-3);
+  cursor: pointer;
+}
+
+.shotDelete:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.shotDelete:disabled {
+  cursor: wait;
+  opacity: 0.5;
+}
+
+.shotCard[data-selected="true"] {
+  border-color: var(--accent-line);
+}
+
+.shotCard[data-picked="true"] {
+  border-color: var(--accent-line);
+  background: linear-gradient(180deg, var(--accent-subtle), var(--bg-1) 42%);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.shotCard[data-scope="sku"] {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.shotCard[data-scope="common"] {
+  box-shadow: inset 3px 0 0 var(--line-2);
+}
+
+.shotHero {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: 120px;
+  padding: 16px;
+  background:
+    linear-gradient(160deg, transparent 30%, var(--bg-3)),
+    repeating-linear-gradient(90deg, transparent, transparent 23px, var(--line-1) 24px);
+}
+
+.shotType {
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.riskMark {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--warning);
+  font-size: 12px;
+}
+
+.shotMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 12px;
+}
+
+.scopeChip,
+.statusPill {
+  padding: 2px 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.confirmBar {
+  position: sticky;
+  bottom: 12px;
+  z-index: var(--z-sticky);
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: auto;
+  padding: 14px 16px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-m);
+  background: color-mix(in srgb, var(--bg-1) 96%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.selectionSummary,
+.lockedNote {
+  margin: 0;
+  color: var(--text-2);
+}
+
+.selectionSummary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+}
+
+.selectionSummary strong {
+  color: var(--text-1);
+  font-weight: 600;
+}
+
+.selectionSummary span {
+  color: var(--text-3);
+}
+
+.confirmActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.selectAllAction,
+.selectedGenerateAction {
+  min-width: 88px;
+}
+
+.selectedGenerateAction:not(:disabled) {
+  min-width: 116px;
+}
+
+.protectHint,
+.riskList {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 10px 0 0;
+  color: var(--warning);
+  font-size: 12px;
+}
+
+.riskList {
+  flex-direction: column;
+  padding: 0;
+  list-style: none;
+}
+
+.claimList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 16px 0 0;
+}
+
+.claimList dt {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.claimList dd {
+  margin: 2px 0 0;
+  color: var(--text-1);
+}
+
+.monoArea textarea {
+  font-family: var(--font-mono);
+}
+
+.inspector .ant-select,
+.inspector .ant-segmented {
+  width: 100%;
+}
+
+.inspectorSettings {
+  margin: 18px 0;
+  padding: 14px 0 2px;
+  border-top: 1px solid var(--line-1);
+}
+
+.inspectorSectionTitle {
+  margin: 0 0 10px !important;
+  color: var(--text-1) !important;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.inspectorSettingGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 14px;
+}
+
+.inspectorCandidate {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.inspectorStepper {
+  display: grid;
+  grid-template-columns: 36px minmax(44px, 1fr) 36px;
+  min-height: 32px;
+  overflow: hidden;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-s);
+  background: var(--bg-2);
+}
+
+.inspectorStepper button {
+  border: 0;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  font: inherit;
+}
+
+.inspectorStepper button:first-child {
+  border-right: 1px solid var(--line-1);
+}
+
+.inspectorStepper button:last-child {
+  border-left: 1px solid var(--line-1);
+}
+
+.inspectorStepper button:hover:not(:disabled) {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.inspectorStepper button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.inspectorStepper strong {
+  display: grid;
+  place-items: center;
+  color: var(--text-1);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+@media (max-width: 560px) {
+  .inspectorSettingGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 960px) {
+  .editWorkspace {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .editAgentPanel {
+    grid-column: 1 / -1;
+    border-top: 1px solid var(--line-1);
+    border-left: 0;
+  }
+}
+
+.generateWrap {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  gap: 16px;
+}
+
+.boardToolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.shotCard[data-disabled="true"] {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.confirmTable {
+  width: 100%;
+  margin-bottom: 16px;
+  border-collapse: collapse;
+}
+
+.confirmTable th,
+.confirmTable td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line-1);
+  text-align: left;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.confirmTable th {
+  color: var(--text-3);
+  font-weight: 400;
+}
+
+.outputGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.outputSlot {
+  overflow: hidden;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-m);
+  background: var(--bg-1);
+}
+
+/* 图片不套卡片边框：同分镜的聚合感由分镜组标题和组内紧密网格承担 */
+
+.outputImage {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-s);
+  object-fit: cover;
+}
+
+/* 生成历史保留时间线语言：竖线与节点收窄到左缘，批次时间元数据横排为头部，
+   回收原 148px 左栏空间，版面重心与瀑布流对齐；
+   相邻批次线段首尾相接形成连续时间轴 */
+.lightboxStage {
+  min-height: 100%;
+  padding: 12px 8px 88px;
+  background: var(--bg-lightbox);
+}
+
+.generationBatch {
+  position: relative;
+  padding: 0 0 40px 20px;
+}
+
+.generationBatch::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 1px;
+  background: var(--line-2);
+}
+
+.generationBatchMeta {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.generationBatchMeta strong {
+  color: var(--text-1);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.generationBatchMeta span {
+  color: var(--text-3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 节点压在左缘竖线上（线在 4px，节点 9px 居中于 4.5px）；最新批次用唯一强调色标出"最近一次生成" */
+.timelineDot {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  width: 9px;
+  height: 9px;
+  border: 1px solid var(--line-2);
+  border-radius: 50%;
+  background: var(--bg-3);
+}
+
+.generationBatch:first-child .timelineDot {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+/* 批次体用多列瀑布流铺排分镜组：分镜组是完整单元横向并列填满整行，消除右侧空白，
+   批次高度按列数成倍压缩；列宽 300px 保证组内并排图片不小于约 145px */
+.generationBatchBody {
+  min-width: 0;
+  columns: 300px;
+  column-gap: 16px;
+}
+
+@media (max-width: 760px) {
+  .generationBatch {
+    padding-bottom: 32px;
+  }
+
+  .generationBatch::before,
+  .timelineDot {
+    display: none;
+  }
+
+  .generationBatchMeta {
+    flex-wrap: wrap;
+  }
+}
+
+/* 分镜组是瀑布流里不可拆分的单元：首图、候选图和重试图永远同列聚在一起，
+   靠标题 + 紧凑网格让人一眼看出是同一分镜，而不是靠卡片边框 */
+.reviewGroup {
+  min-width: 0;
+  break-inside: avoid;
+}
+
+.reviewGroupTitle {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.reviewGroupTitle span {
+  color: var(--text-3);
+  font-family: var(--font-body);
+  font-size: 12px;
+}
+
+/* 组内多图（候选 / 重试）并排紧密排布，共享同一分镜标题形成视觉聚合 */
+.reviewGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
+  gap: 8px;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 560px;
+}
+
+.versionTreeHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 12px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.versionTreeHeader>div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.versionTreeHeader strong {
+  color: var(--text-1);
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.versionTreeHeader button {
+  display: inline-grid;
+  width: 28px;
+  height: 28px;
+  margin-left: 6px;
+  place-items: center;
+  border: 1px solid var(--line-1);
+  border-radius: 5px;
+  background: var(--bg-1);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.versionTreeCanvas {
+  position: relative;
+  height: min(620px, calc(100vh - 260px));
+  overflow: hidden;
+  border: 1px solid var(--line-1);
+  background: var(--bg-1);
+  cursor: grab;
+  touch-action: none;
+}
+
+.versionTreeCanvas:active {
+  cursor: grabbing;
+}
+
+.versionTreeWorld {
+  position: absolute;
+  width: 1000px;
+  height: 650px;
+  transform-origin: 0 0;
+}
+
+.versionTreeLinks {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.versionTreeLinks path {
+  fill: none;
+  stroke: var(--accent-line);
+  stroke-width: 2;
+  stroke-dasharray: 5 5;
+}
+
+.versionTreeNode {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  width: 192px;
+  overflow: hidden;
+  border: 1px solid var(--line-2);
+  border-radius: 7px;
+  background: var(--bg-1);
+  color: var(--text-1);
+  box-shadow: 0 10px 24px rgb(0 0 0 / 0.2);
+}
+
+.versionTreeNode:hover {
+  border-color: var(--accent-line);
+  transform: translateY(-2px);
+}
+
+.versionTreeOpen {
+  display: grid;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.versionTreeOpen img {
+  display: block;
+  width: 192px;
+  height: 126px;
+  object-fit: cover;
+}
+
+.versionTreeOpen span {
+  padding: 8px 10px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+/* 版本树悬浮按钮：与结果卡片的选择按钮共用圆形玻璃视觉语言 */
+.versionTreeSelect,
+.versionTreeDownload {
+  position: absolute;
+  top: 8px;
+  z-index: 2;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 0.22);
+  border-radius: 50%;
+  background: rgb(12 12 12 / 0.62);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.25), inset 0 1px 0 rgb(255 255 255 / 0.08);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  cursor: pointer;
+  color: rgb(255 255 255 / 0.82);
+  transition: opacity 160ms ease, background-color 160ms ease, border-color 160ms ease, transform 160ms ease, color 120ms ease;
+}
+
+.versionTreeSelect {
+  left: 8px;
+}
+
+.versionTreeDownload {
+  right: 8px;
+}
+
+.versionTreeNode:hover .versionTreeSelect,
+.versionTreeNode:hover .versionTreeDownload,
+.versionTreeNode:focus-within .versionTreeSelect,
+.versionTreeNode:focus-within .versionTreeDownload {
+  opacity: 1;
+}
+
+.versionTreeDownload:hover {
+  border-color: rgb(255 255 255 / 0.5);
+  background: rgb(12 12 12 / 0.8);
+  color: #fff;
+}
+
+/* 版本树选择按钮：悬停出现；选中后填充主题色并显示对勾 */
+.versionTreeSelect::before {
+  content: "+";
+  color: rgb(255 255 255 / 0.7);
+  font-size: 15px;
+  font-weight: 300;
+  line-height: 1;
+  transition: color 120ms ease;
+}
+
+.versionTreeSelect:hover {
+  border-color: rgb(255 255 255 / 0.5);
+  background: rgb(12 12 12 / 0.8);
+}
+
+.versionTreeSelect:hover::before {
+  color: #fff;
+}
+
+.versionTreeSelect:active {
+  transform: scale(0.9);
+}
+
+.versionTreeSelect input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  appearance: none;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.versionTreeSelect:has(input:checked) {
+  border-color: color-mix(in srgb, var(--accent) 70%, white);
+  background: color-mix(in srgb, var(--accent) 84%, #111111);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 30%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.18);
+}
+
+.versionTreeSelect:has(input:checked)::before {
+  content: none;
+}
+
+.versionTreeSelect:has(input:checked)::after {
+  content: "";
+  width: 10px;
+  height: 5px;
+  margin-top: -2px;
+  border-left: 2px solid var(--accent-ink);
+  border-bottom: 2px solid var(--accent-ink);
+  background: none;
+  transform: rotate(-45deg);
+}
+
+.versionTreeSelect:has(input:focus-visible) {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 1px;
+}
+
+/* 多图分镜在列内形成完整单元，组间距略大于组内图片间距以强化分组 */
+.generationBatch .reviewGroup+.reviewGroup {
+  margin-top: 18px;
+}
+
+.retryMark {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 2;
+  padding: 3px 7px;
+  border: 1px solid rgb(255 255 255 / 0.18);
+  border-radius: 999px;
+  background: rgb(12 12 12 / 0.72);
+  color: var(--text-2);
+  font-size: 10px;
+  line-height: 1.2;
+  backdrop-filter: blur(6px);
+  transition: opacity 140ms ease;
+}
+
+/* 折叠分镜的第 4 张图整面遮罩：点击原位展开全部图片，压住底部操作条避免交互歧义 */
+.reviewOverflow {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: rgb(10 10 10 / 0.58);
+  color: #fff;
+  font: inherit;
+  font-size: 20px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  place-items: center;
+  backdrop-filter: blur(2px);
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+
+.reviewOverflow:hover {
+  background: rgb(10 10 10 / 0.74);
+}
+
+.reviewOverflow:focus-visible {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 2px;
+}
+
+/* 展开态的收起按钮：弱化为标题行右侧的胶囊文字按钮 */
+.reviewCollapse {
+  margin-left: auto;
+  padding: 2px 9px;
+  border: 1px solid var(--line-1);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-3);
+  font-family: var(--font-body);
+  font-size: 11px;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+.reviewCollapse:hover {
+  border-color: var(--line-2);
+  color: var(--text-1);
+}
+
+.snapshotTrigger {
+  width: 100%;
+  margin-top: 8px;
+  justify-content: center;
+}
+
+/* 限高滚动：快照多时弹层不无限拉长；露出下一条上边缘暗示可滚 */
+.snapshotList {
+  display: grid;
+  min-width: 256px;
+  max-height: 264px;
+  padding: 2px;
+  gap: 6px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-2) transparent;
+}
+
+/* 弹层底色为 bg-3，全局滚动条 thumb 同为 bg-3 会隐形，这里单独提亮 */
+.snapshotList::-webkit-scrollbar {
+  width: 8px;
+}
+
+.snapshotList::-webkit-scrollbar-thumb {
+  background: var(--line-2);
+  border-radius: 8px;
+}
+
+.snapshotList::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.snapshotList p {
+  margin: 10px 8px;
+  color: var(--text-3);
+  font-size: 12px;
+  text-align: center;
+}
+
+.snapshotList button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-s);
+  background: var(--bg-1);
+  color: var(--text-2);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease;
+}
+
+.snapshotList button:hover:not(:disabled) {
+  border-color: var(--accent-line);
+  background: var(--bg-2);
+  color: var(--text-1);
+}
+
+.snapshotList button:focus-visible {
+  outline: 2px solid var(--accent-hover);
+  outline-offset: 1px;
+}
+
+.snapshotList button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.snapshotMain {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.snapshotList strong {
+  color: var(--text-1);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.snapshotMode {
+  justify-self: start;
+  padding: 1px 7px;
+  border: 1px solid var(--line-1);
+  border-radius: 999px;
+  background: var(--bg-2);
+  color: var(--text-3);
+  font-size: 10px;
+  line-height: 16px;
+}
+
+.snapshotMode[data-ai="true"] {
+  border-color: var(--accent-line);
+  background: var(--accent-subtle);
+  color: var(--text-2);
+}
+
+.snapshotCount {
+  flex: none;
+  color: var(--text-3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 悬停详情：时间与模式在列表项上已展示，这里只补差异信息；描述超两行截断控制信息量 */
+.snapshotPreview {
+  display: grid;
+  min-width: 200px;
+  gap: 4px;
+}
+
+.snapshotPreviewText {
+  margin: 0;
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.snapshotPreviewDesc {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin: 0;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.reviewThumb {
+  position: relative;
+}
+
+/* 缩略图用 antd Image：className 落在内层 img（沿用 outputImage 的裁切），
+   rootClassName 落在包裹 div 上，撑满卡片宽度，避免 inline-block 收缩后按图片原始宽度溢出 */
+.reviewImage {
+  display: block;
+  width: 100%;
+  cursor: zoom-in;
+}
+
+/* 看图时背景蒙灰：工作台本身是暗房（--bg-lightbox #17171a），antd 默认的 45% 黑遮罩压上去
+   等于没盖——背景本来就接近黑。改成 off-white 薄雾 + 背景模糊，页面内容退成灰色底噪，
+   图片才从页面里立起来。antd 样式是运行时注入的，靠级联顺序压不住，必须 !important。 */
+:global(.ant-image-preview-mask) {
+  background: color-mix(in srgb, var(--text-2) 34%, transparent) !important;
+  backdrop-filter: blur(6px) !important;
+}
+
+/* antd 预览层的翻页按钮默认贴视口两缘（各 8px），窄图两侧会空出几百像素。
+   ReviewStage 在预览打开后把图片半宽写进 --ecomgen-preview-image-half，按钮据此贴到图片两侧；
+   变量缺失时按 40vw 估算，仍比贴边近得多。 */
+:global(.ant-image-preview-switch-prev) {
+  inset-inline-start: max(8px, calc(50% - var(--ecomgen-preview-image-half, 40vw) - 58px)) !important;
+}
+
+:global(.ant-image-preview-switch-next) {
+  inset-inline-end: max(8px, calc(50% - var(--ecomgen-preview-image-half, 40vw) - 58px)) !important;
+}
+
+/* 翻页按钮视觉：antd 默认是 39px 半透明圆钮 + 细箭头，压在图片和灰色薄雾上都不够醒目。
+   改成近实底深色圆钮、加粗描边与外阴影，悬停直接填充项目唯一强调色（黑白强调）+ 深色箭头，
+   反馈一眼可见。灯箱的翻页按钮（.overlayNav）沿用同一套数值，两个看图入口保持一致。 */
+:global(.ant-image-preview-switch-prev),
+:global(.ant-image-preview-switch-next) {
+  width: 46px !important;
+  height: 46px !important;
+  border: 1px solid color-mix(in srgb, var(--text-1) 32%, transparent) !important;
+  background: rgb(13 13 13 / 0.86) !important;
+  color: var(--text-1) !important;
+  font-size: 20px !important;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.45) !important;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease !important;
+}
+
+:global(.ant-image-preview-switch-prev:hover),
+:global(.ant-image-preview-switch-next:hover),
+:global(.ant-image-preview-switch-prev:focus-visible),
+:global(.ant-image-preview-switch-next:focus-visible) {
+  border-color: var(--accent) !important;
+  background: var(--accent) !important;
+  color: var(--bg-0) !important;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.45), 0 0 0 4px var(--accent-subtle) !important;
+}
+
+/* 序列两端的按钮 antd 会置为禁用，禁用态不能沿用黑白强调悬停反馈（选择器要带 :hover 才压得住上面的悬停规则） */
+:global(.ant-image-preview-switch-disabled),
+:global(.ant-image-preview-switch-disabled:hover),
+:global(.ant-image-preview-switch-disabled:focus-visible) {
+  border-color: var(--line-1) !important;
+  background: rgb(13 13 13 / 0.55) !important;
+  color: var(--text-3) !important;
+  box-shadow: none !important;
+  cursor: not-allowed !important;
+}
+
+/* 底部计数与操作条：antd 的底是 colorBgMask 的 10% 黑、文字是 65% 白（previewOperation* token），
+   压在灰色薄雾上与背景糊在一起。改成与翻页按钮同一套近实底深色胶囊；图标用暖白，不用纯白。 */
+:global(.ant-image-preview-progress) {
+  padding: 4px 12px !important;
+  border: 1px solid color-mix(in srgb, var(--text-1) 20%, transparent) !important;
+  border-radius: 999px !important;
+  background: rgb(13 13 13 / 0.86) !important;
+  color: var(--text-1) !important;
+  font-size: 14px !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+:global(.ant-image-preview-actions) {
+  padding: 4px 10px !important;
+  border: 1px solid color-mix(in srgb, var(--text-1) 32%, transparent) !important;
+  background: rgb(13 13 13 / 0.86) !important;
+  font-size: 20px !important;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.45) !important;
+}
+
+:global(.ant-image-preview-actions-action) {
+  border-radius: 50% !important;
+  color: var(--text-1) !important;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease !important;
+}
+
+/* 操作条悬停沿用翻页按钮的黑白强调反馈，整个看图层的悬停语言保持一致 */
+:global(.ant-image-preview-actions-action:not(.ant-image-preview-actions-action-disabled):hover),
+:global(.ant-image-preview-actions-action:not(.ant-image-preview-actions-action-disabled):focus-visible) {
+  background: var(--accent) !important;
+  color: var(--bg-0) !important;
+}
+
+:global(.ant-image-preview-actions-action-disabled),
+:global(.ant-image-preview-actions-action-disabled:hover) {
+  background: transparent !important;
+  color: var(--text-3) !important;
+  cursor: not-allowed !important;
+}
+
+/* 右上角关闭钮与翻页按钮同属一套操作控件，一并去糊化，避免同一层里一半清楚一半发灰 */
+:global(.ant-image-preview-close) {
+  width: 40px !important;
+  height: 40px !important;
+  border: 1px solid color-mix(in srgb, var(--text-1) 32%, transparent) !important;
+  background: rgb(13 13 13 / 0.86) !important;
+  color: var(--text-1) !important;
+  font-size: 18px !important;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.45) !important;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease !important;
+}
+
+:global(.ant-image-preview-close:hover),
+:global(.ant-image-preview-close:focus-visible) {
+  border-color: var(--accent) !important;
+  background: var(--accent) !important;
+  color: var(--bg-0) !important;
+}
+
+/* 悬浮选择按钮：圆形玻璃按钮，悬停出现；选中后填充主题色并显示对勾 */
+.outputSelect {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid rgb(255 255 255 / 0.22);
+  border-radius: 50%;
+  background: rgb(12 12 12 / 0.62);
+  box-shadow: 0 4px 14px rgb(0 0 0 / 0.25), inset 0 1px 0 rgb(255 255 255 / 0.08);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 160ms ease, background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.reviewThumb:hover .outputSelect,
+.reviewThumb:focus-within .outputSelect {
+  opacity: 1;
+}
+
+.outputSelect::before {
+  content: "+";
+  color: rgb(255 255 255 / 0.7);
+  font-size: 15px;
+  font-weight: 300;
+  line-height: 1;
+  transition: color 120ms ease;
+}
+
+.outputSelect:hover {
+  border-color: rgb(255 255 255 / 0.5);
+  background: rgb(12 12 12 / 0.8);
+}
+
+.outputSelect:hover::before {
+  color: #fff;
+}
+
+.outputSelect:active {
+  transform: scale(0.9);
+}
+
+.outputSelect input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  appearance: none;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* 选中态用 CSS 画对勾，避免字符渲染差异 */
+.outputSelect:has(input:checked) {
+  border-color: color-mix(in srgb, var(--accent) 70%, white);
+  background: color-mix(in srgb, var(--accent) 84%, #111111);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 30%, transparent), inset 0 1px 0 rgb(255 255 255 / 0.18);
+}
+
+.outputSelect:has(input:checked)::before {
+  content: none;
+}
+
+.outputSelect:has(input:checked)::after {
+  content: "";
+  width: 10px;
+  height: 5px;
+  margin-top: -2px;
+  border-left: 2px solid var(--accent-ink);
+  border-bottom: 2px solid var(--accent-ink);
+  background: none;
+  transform: rotate(-45deg);
+}
+
+.outputSelect:has(input:focus-visible) {
+  outline: 2px solid var(--accent-line);
+  outline-offset: 1px;
+}
+
+.editVersionPeek {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 16px);
+  padding: 4px 8px 4px 4px;
+  border: 1px solid rgb(255 255 255 / 0.22);
+  border-radius: 999px;
+  background: rgb(12 12 12 / 0.72);
+  color: var(--text-1);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  text-align: left;
+  backdrop-filter: blur(6px);
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.editVersionPeek:hover {
+  border-color: var(--accent-line);
+  background: rgb(12 12 12 / 0.88);
+}
+
+.editVersionPeekImages {
+  display: inline-flex;
+  align-items: center;
+}
+
+.editVersionPeekImages img {
+  width: 22px;
+  height: 22px;
+  margin-right: -7px;
+  border: 1px solid rgb(12 12 12 / 0.82);
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.editVersionPeekImages img:last-child {
+  margin-right: 0;
+}
+
+/* 底部悬浮胶囊操作条：与右上角编辑版本徽标分离，互不遮挡；
+   nowrap 防止窄卡片下"下载/灯箱"文字竖排换行 */
+.reviewActions {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  display: flex;
+  gap: 2px;
+  max-width: calc(100% - 16px);
+  padding: 3px;
+  border: 1px solid rgb(255 255 255 / 0.16);
+  border-radius: 999px;
+  background: rgb(10 10 10 / 0.72);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  white-space: nowrap;
+  transform: translate(-50%, 6px);
+  transition: opacity 140ms ease, transform 140ms ease;
+  pointer-events: none;
+}
+
+.reviewThumb:hover .reviewActions,
+.reviewThumb:focus-within .reviewActions {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+
+.reviewActions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 11px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+/* 操作条出现时隐藏重试标签：两者同处底部会重叠，时间戳在非悬停态仍可读 */
+.reviewThumb:hover .retryMark,
+.reviewThumb:focus-within .retryMark {
+  opacity: 0;
+}
+
+.reviewActions button:hover:not(:disabled),
+.reviewActions button:focus-visible {
+  background: rgb(255 255 255 / 0.14);
+}
+
+.reviewActions button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.lightboxBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(220px, 0.8fr);
+  gap: 20px;
+}
+
+/* 图片与翻页按钮同占第一列并显式定行：auto-placement 会把后加入的元素挤到第二行。
+   类名由 antd Image 的 rootClassName 落在外层包裹 div 上（className 落在内层 img 上）。 */
+.lightboxImage {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+
+.lightboxTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lightboxTitle em {
+  color: var(--text-3);
+  font-size: 13px;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 图片左右边缘的翻页按钮：叠在图片之上，随图片列居中 */
+.lightboxNavPrev,
+.lightboxNavNext {
+  z-index: 2;
+  grid-area: 1 / 1;
+  align-self: center;
+}
+
+.lightboxNavPrev {
+  justify-self: start;
+  margin-left: 8px;
+}
+
+.lightboxNavNext {
+  justify-self: end;
+  margin-right: 8px;
+}
+
+/* 深色圆钮：antd 预览层与灯箱两个看图入口共用同一套数值，避免同一交互两副长相 */
+.overlayNav {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--text-1) 32%, transparent);
+  border-radius: 50%;
+  background: rgb(13 13 13 / 0.86);
+  color: var(--text-1);
+  cursor: pointer;
+  place-items: center;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.45);
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.overlayNav:hover,
+.overlayNav:focus-visible {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg-0);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.45), 0 0 0 4px var(--accent-subtle);
+}
+
+/* 高图时限制图片不超出视口，避免弹层整体滚动 */
+.lightboxBody :global(.ant-image img) {
+  max-height: calc(100vh - 220px);
+  object-fit: contain;
+}
+
+/* 尺寸隔离：meta 不参与行高计算（行高完全由左侧图片决定），
+   Prompt 占据标题与按钮之间的剩余空间，高度随图片自适应，超出内部滚动 */
+.lightboxMeta {
+  display: flex;
+  flex-direction: column;
+  grid-area: 1 / 2;
+  gap: 12px;
+  min-height: 0;
+  contain: size;
+}
+
+.promptPreview {
+  margin: 0;
+  flex: 1 1 auto;
+  min-height: 48px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-2) transparent;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.promptPreview::-webkit-scrollbar {
+  width: 8px;
+}
+
+.promptPreview::-webkit-scrollbar-thumb {
+  background: var(--line-2);
+  border-radius: 8px;
+}
+
+.promptPreview::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+
+
+.downloadLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+}
+
+.editModal :global(.ant-modal-content) {
+  overflow: hidden;
+  padding: 0;
+  background: var(--bg-0);
+}
+
+.editModal :global(.ant-modal-header) {
+  margin: 0;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line-1);
+  background: var(--bg-1);
+}
+
+.editModal :global(.ant-modal-body) {
+  padding: 0;
+}
+
+.editWorkspace {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) 320px;
+  min-height: min(760px, calc(100vh - 130px));
+  background: var(--bg-1);
+}
+
+.editToolbar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px;
+  border-right: 1px solid var(--line-1);
+  background: var(--bg-1);
+}
+
+.editTool {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.editTool:hover:not(:disabled),
+.editTool[data-active="true"] {
+  border-color: var(--accent-line);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.editTool:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.editDivider {
+  width: 24px;
+  height: 1px;
+  margin: 4px 0;
+  background: var(--line-1);
+}
+
+.editCanvasArea {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  place-items: center;
+  overflow: auto;
+  padding: 24px;
+  background: var(--bg-2);
+}
+
+.editCanvasFrame {
+  position: relative;
+  display: inline-grid;
+  max-width: 100%;
+  max-height: calc(100vh - 190px);
+  transform-origin: center center;
+  box-shadow: 0 18px 48px rgb(0 0 0 / 0.32);
+}
+
+.editCanvasFrame>img {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 190px);
+  object-fit: contain;
+}
+
+.editCanvas {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.editCanvas[data-tool="rect"] {
+  cursor: crosshair;
+}
+
+.editCanvas[data-tool="pan"] {
+  cursor: grab;
+}
+
+.editCanvas[data-tool="pan"]:active {
+  cursor: grabbing;
+}
+
+.editCanvas[data-tool="brush"] {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Ccircle cx='16' cy='16' r='11' fill='none' stroke='%231888f2' stroke-width='2'/%3E%3C/svg%3E") 16 16, crosshair;
+}
+
+.editCanvas[data-tool="erase"] {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Ccircle cx='16' cy='16' r='11' fill='none' stroke='%23f0f3f5' stroke-width='2'/%3E%3C/svg%3E") 16 16, crosshair;
+}
+
+.editCanvas[data-tool="protect"] {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Ccircle cx='16' cy='16' r='11' fill='none' stroke='%23f29a18' stroke-width='2'/%3E%3C/svg%3E") 16 16, crosshair;
+}
+
+.editCanvas[data-tool="arrow"] {
+  cursor: crosshair;
+}
+
+.editCanvas[data-tool="text"] {
+  cursor: text;
+}
+
+.editInlineText {
+  position: absolute;
+  z-index: 5;
+  display: block;
+  min-width: 128px;
+  max-width: min(320px, 45%);
+  padding: 4px 6px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  outline: none;
+  pointer-events: auto;
+  background: rgb(12 12 12 / 0.9);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 0.32);
+  font-family: inherit;
+}
+
+.editColorPicker,
+.editTextSize {
+  display: grid;
+  gap: 7px;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.editColorPicker>div {
+  display: flex;
+  gap: 7px;
+}
+
+.editColorPicker button {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.editColorPicker button[data-active="true"] {
+  border-color: var(--text-1);
+  box-shadow: 0 0 0 1px var(--bg-1);
+}
+
+.editTextHint {
+  margin: -8px 0 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.editAgentPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+  border-left: 1px solid var(--line-1);
+  background: var(--bg-1);
+}
+
+.editAgentPanel h2 {
+  margin: 3px 0 0;
+  color: var(--text-1);
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 400;
+}
+
+.editEyebrow {
+  margin: 0;
+  color: var(--accent);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+}
+
+.editHint {
+  margin: 8px 0 0;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.editGenerationSettings {
+  display: grid;
+  gap: 8px;
+}
+
+.editSettingsToggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 8px 9px;
+  border: 1px solid var(--line-1);
+  border-radius: 5px;
+  background: var(--bg-2);
+  color: var(--text-2);
+  cursor: pointer;
+  text-align: left;
+}
+
+.editSettingsToggle span {
+  font-size: 12px;
+}
+
+.editSettingsToggle small {
+  margin-left: auto;
+  color: var(--text-4);
+  font-size: 10px;
+}
+
+.editSettingsToggle svg:last-child {
+  color: var(--text-4);
+  transition: transform 160ms ease;
+}
+
+.editSettingsToggle[aria-expanded="true"] svg:last-child {
+  transform: rotate(180deg);
+}
+
+.editSettingsBody {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line-1);
+  border-radius: 5px;
+  background: var(--bg-2);
+}
+
+.editSettingsBody label {
+  display: grid;
+  gap: 4px;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.editSettingsBody select,
+.editSettingsBody input {
+  width: 100%;
+  min-height: 30px;
+  padding: 4px 7px;
+  border: 1px solid var(--line-1);
+  border-radius: 4px;
+  background: var(--bg-1);
+  color: var(--text-1);
+  font: inherit;
+}
+
+.editSettingsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.editBrushSize {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.editBrushSize input {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+.editPlan {
+  padding: 12px;
+  border-left: 2px solid var(--accent);
+  background: var(--accent-subtle);
+}
+
+.editPlan p,
+.editPlan span,
+.editError,
+.editSuccess {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.editPlan p {
+  color: var(--text-1);
+}
+
+.editPlan span {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.editError {
+  color: var(--danger);
+}
+
+.editSuccess {
+  color: var(--accent);
+}
+
+.editCommands {
+  margin-top: auto;
+}
+
+.editCommands :global(.ant-btn) {
+  width: 100%;
+}
+
+.editReferences {
+  display: grid;
+  gap: 7px;
+}
+
+.editReferencesHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.editReferencesHeader button,
+.editReferenceReuse {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.editReferenceStrip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+}
+
+.editReferenceStrip>small {
+  color: var(--text-4);
+  font-size: 11px;
+}
+
+.editReferenceChip {
+  position: relative;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  overflow: hidden;
+  border: 1px solid var(--line-1);
+  border-radius: 4px;
+  background: var(--bg-2);
+}
+
+.editReferenceChip img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.editReferenceChip span {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 2px;
+  overflow: hidden;
+  background: rgb(0 0 0 / 0.68);
+  color: #fff;
+  font-size: 9px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editReferenceChip button {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  display: grid;
+  width: 15px;
+  height: 15px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.7);
+  color: #fff;
+  cursor: pointer;
+}
+
+.editReferenceMore {
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.referencePopover {
+  display: grid;
+  width: 340px;
+  max-width: calc(100vw - 48px);
+  gap: 10px;
+}
+
+.referencePopoverDragActive {
+  outline: 1px dashed var(--accent);
+  outline-offset: -5px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-1));
+}
+
+.referencePopoverHeading,
+.referencePopoverActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.referencePopoverHeading span {
+  color: var(--text-4);
+  font-size: 11px;
+}
+
+.referenceTabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line-1);
+}
+
+.referenceTabs button {
+  padding: 5px 8px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-3);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.referenceTabs button[data-active="true"] {
+  border-color: var(--accent);
+  color: var(--text-1);
+}
+
+.referenceList {
+  display: grid;
+  max-height: 260px;
+  gap: 5px;
+  overflow: auto;
+}
+
+.referenceLoading {
+  padding: 22px;
+  color: var(--text-4);
+  font-size: 11px;
+  text-align: center;
+}
+
+.referenceRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 5px;
+}
+
+.referencePick {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  padding: 4px;
+  border: 1px solid var(--line-1);
+  border-radius: 4px;
+  background: var(--bg-2);
+  color: var(--text-2);
+  cursor: pointer;
+  text-align: left;
+}
+
+.referencePick[data-selected="true"] {
+  border-color: var(--accent);
+}
+
+.referencePick img {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  object-fit: cover;
+  border-radius: 3px;
+}
+
+.referencePick span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.referenceRowActions {
+  display: flex;
+  align-items: center;
+}
+
+.referenceRowActions button {
+  display: grid;
+  min-width: 25px;
+  height: 25px;
+  place-items: center;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--text-4);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.referencePopoverActions {
+  padding-top: 2px;
+  border-top: 1px solid var(--line-1);
+}
+
+.referencePopoverAnchor {
+  display: block;
+  width: 1px;
+  height: 1px;
+}
+
+.editVersions,
+.editMemory {
+  display: grid;
+  gap: 7px;
+}
+
+.editVersions>p,
+.editMemory>p {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.editMemoryHeading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.editMemoryHeading small {
+  color: var(--text-4);
+  font-size: 10px;
+}
+
+.editVersionRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px;
+}
+
+.editVersionRow button {
+  min-height: 28px;
+  padding: 4px 7px;
+  border: 1px solid var(--line-1);
+  border-radius: 4px;
+  background: var(--bg-2);
+  color: var(--text-3);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.editVersionRow button:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  text-align: left;
+}
+
+.editVersionRow button[data-current="true"] {
+  border-color: var(--accent);
+  color: var(--text-1);
+}
+
+.editVersionRow small {
+  color: var(--text-4);
+}
+
+.editCompare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.editCompare>div {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line-1);
+  border-radius: 4px;
+}
+
+.editCompare img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+}
+
+.editCompare span {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  padding: 2px 4px;
+  background: rgb(0 0 0 / 0.7);
+  color: white;
+  font-size: 10px;
+}
+
+.editMemory .ant-input {
+  font-size: 12px;
+}
+
+.editOutpaint {
+  display: grid;
+  gap: 6px;
+}
+
+.editOutpaint p {
+  margin: 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.editOutpaint p span {
+  margin-left: 6px;
+  color: var(--text-4);
+}
+
+.editOutpaint>div {
+  display: flex;
+  gap: 6px;
+}
+
+.editOutpaintInputs {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.editOutpaintInputs label {
+  display: grid;
+  gap: 3px;
+  color: var(--text-3);
+  font-size: 11px;
+}
+
+.editOutpaintInputs :global(.ant-input-number) {
+  width: 100%;
+}
+
+.editOutpaint small {
+  color: var(--text-4);
+  font-size: 11px;
+}
+
+.editOutpaint button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  color: var(--text-3);
+  border: 1px solid var(--line-1);
+  border-radius: 4px;
+  background: var(--bg-2);
+  cursor: pointer;
+}
+
+.editOutpaint button[data-active="true"] {
+  color: var(--text-1);
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--bg-2));
+}
+
+@media (max-width: 960px) {
+
+  .shell,
+  .shell[data-collapsed="true"] {
+    grid-template-columns: 1fr;
+  }
+
+  .left {
+    border-right: 0;
+    border-bottom: 1px solid var(--line-1);
+    max-height: 48vh;
+  }
+
+  .left[data-collapsed="true"] {
+    max-height: none;
+    padding: 12px 16px;
+  }
+
+  .rail {
+    flex-direction: row;
+  }
+
+  .railLabel {
+    writing-mode: horizontal-tb;
+  }
+
+  .paramGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .confirmBar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .confirmActions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 560px) {
+  .selectionSummary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .confirmActions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* 比例下拉选项：示意框直接给出形状，减少逐个试选的成本 */
+.aspectOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 固定宽度槽位居中示意框，比例值在所有选项间纵向对齐 */
+.aspectGlyphBox {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+}
+
+.aspectGlyph {
+  flex: none;
+  display: inline-block;
+  border: 1.5px solid var(--text-2);
+  border-radius: 3px;
+}
+
+.aspectGlyphAuto {
+  flex: none;
+  display: inline-block;
+  border: 1.5px dashed var(--text-3);
+  border-radius: 3px;
+}
+
+.aspectRatioText {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-1);
+}
+
+.aspectDesc {
+  font-size: 12px;
+  color: var(--text-3);
+}
+
+/* 自定义模板 chip：虚线边框与内置模板区分 */
+.chip[data-custom="true"] {
+  border-style: dashed;
+}
+
+.manageTemplates {
+  margin-top: 10px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.manageTemplates:hover {
+  text-decoration: underline;
+}
+
+/* 套图分镜选择区：与单图模板 chip 并列，选中分镜以强调样式区分 */
+.chip[data-suite="true"] {
+  border-style: solid;
+  border-color: var(--accent-line);
+}
+
+.suiteHint {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.6;
+}
+
+.userTemplateList {
+  display: grid;
+  gap: 10px;
+}
+
+.userTemplateEmpty {
+  margin: 0;
+  padding: 18px 0;
+  color: var(--text-3);
+  font-size: 13px;
+  text-align: center;
+}
+
+.userTemplateItem {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-1);
+  border-radius: 8px;
+  background: var(--bg-1);
+}
+
+.userTemplateMain {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.userTemplateName {
+  overflow: hidden;
+  color: var(--text-1);
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.userTemplateMeta {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.userTemplatePrompt {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin: 0;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.userTemplateActions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 6px;
+}
+
+.userTemplateForm {
+  display: grid;
+  gap: 4px;
+}
+
+.userTemplateBack {
+  justify-self: start;
+  margin-bottom: 4px;
+}
+
+.userTemplatePromptLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.userTemplateParams {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.userTemplateParamItem {
+  margin-bottom: 0;
+}
+
+.userTemplateFormActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+/* 编辑器「AI 分层导出」模式：右侧面板整体切换为图层识别与导出流程 */
+.editLayersHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.editLayersBack {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+.editLayersBack:hover {
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+.editLayersTitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-1);
+}
+
+.editLayersBadge {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin-left: 2px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-s);
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.editLayersBody {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  flex: 1;
+  min-height: 0;
+  /* 长模型名/输入内容不把面板撑出横向滚动条 */
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+/* grid 子项默认 min-width:auto，长内容会把轨道撑破 */
+.editLayersBody > * {
+  min-width: 0;
+}
+
+.editLayersFoot {
+  display: grid;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-1);
+}
+
+.editLayersChips {
+  display: grid;
+  gap: 6px;
+}
+
+.editLayersMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.editLayersMetaAction {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.editLayersMetaAction:hover {
+  text-decoration: underline;
+}
+
+.editLayersChip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-s);
+  background: var(--bg-2);
+  color: var(--text-1);
+  transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
+}
+
+.editLayersChip[data-selectable="true"] {
+  cursor: pointer;
+}
+
+.editLayersChip:hover {
+  border-color: var(--accent-line);
+}
+
+.editLayersChip[data-selected="true"] {
+  border-color: var(--accent-line);
+  background: var(--accent-subtle);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+.editLayersThumb {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line-1);
+  border-radius: 4px;
+  background-color: var(--bg-3);
+  background-repeat: no-repeat;
+}
+
+.editLayersDot {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  color: var(--text-3);
+}
+
+.editLayersChipName {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-1);
+  font-size: 12px;
+}
+
+span.editLayersChipName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editLayersChipRemove {
+  border: none;
+  background: transparent;
+  color: var(--text-4);
+  cursor: pointer;
+  padding: 2px;
+  display: grid;
+  place-items: center;
+  opacity: 0.6;
+  transition: color 150ms ease, opacity 150ms ease;
+}
+
+.editLayersChipRemove:hover {
+  color: var(--danger);
+  opacity: 1;
+}
+
+.editLayersSkeleton {
+  display: grid;
+  gap: 8px;
+}
+
+.editLayersSkeletonRow {
+  height: 36px;
+  border-radius: var(--radius-s);
+  background: linear-gradient(90deg, var(--bg-2), var(--bg-3), var(--bg-2));
+  background-size: 200% 100%;
+  animation: editLayerPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes editLayerPulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+.editLayersStatus {
+  color: var(--text-3);
+  font-size: 12px;
+}
+
+.editLayersBlock {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-m);
+  background: var(--bg-2);
+}
+
+.editLayersPrompt {
+  display: grid;
+  gap: 6px;
+}
+
+/* 面板宽度有限，输入文字与整体小号排版保持一致 */
+.editLayersPrompt textarea {
+  font-size: 12px;
+}
+
+.editLayersPromptAction {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.editLayersEmpty {
+  margin: 0;
+  color: var(--text-4);
+  font-size: 11px;
+}
+
+.editLayersSwitch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-2);
+  font-size: 12px;
+}
+
+.editLayersPreview {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+/* 结果视图的图层卡片：棋盘图 + 单行名称 + 下载图标，避免长文件名把卡片挤乱 */
+.editLayersPreviewItem {
+  display: grid;
+  gap: 6px;
+  justify-items: stretch;
+  margin: 0;
+  padding: 6px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-s);
+  background: var(--bg-2);
+}
+
+.editLayersPreviewItem .editLayersChecker {
+  border: none;
+  border-radius: 3px;
+}
+
+.editLayersPreviewItem img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  background: transparent;
+}
+
+.editLayersPreviewCaption {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+}
+
+.editLayersPreviewName {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-2);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editLayersDownload {
+  display: block;
+  text-decoration: none;
+}
+
+.editLayersRecognize {
+  display: grid;
+  gap: 8px;
+}
+
+/* 面板只有 320px：选中值分两行展示（Provider 名 + 模型 ID），压平 antd 默认单行省略 */
+.editLayersRecognize :global(.ant-select-selection-item) {
+  height: auto;
+  margin-block: 2px;
+  line-height: 1.25;
+}
+
+.editLayersModelValue {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.editLayersModelProvider {
+  color: var(--text-3);
+  font-size: 10px;
+  line-height: 1.2;
+}
+
+.editLayersModelId {
+  overflow: hidden;
+  color: var(--text-1);
+  font-size: 12px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 透明棋盘格：单层 PNG 的透明区域需要可见，避免与纯白/纯黑背景混淆 */
+.editLayersChecker {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--line-1);
+  border-radius: 4px;
+  background-color: #fff;
+  background-image:
+    linear-gradient(45deg, #e6e6e6 25%, transparent 25%),
+    linear-gradient(-45deg, #e6e6e6 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e6e6e6 75%),
+    linear-gradient(-45deg, transparent 75%, #e6e6e6 75%);
+  background-size: 12px 12px;
+  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+}
+
+.editLayersChecker img {
+  background: transparent;
+}
+
+.editLayersPreviewDownload {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-s);
+  color: var(--text-3);
+  text-decoration: none;
+}
+
+.editLayersPreviewDownload:hover {
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+/* ===== 图层编排弹窗 ===== */
+.layerStackOverlay { position: fixed; inset: 0; z-index: 1200; display: flex; flex-direction: column; background: color-mix(in srgb, var(--bg-0) 92%, transparent); backdrop-filter: blur(14px); }
+.layerStackHeader { display: flex; align-items: center; gap: 10px; padding: 12px 20px; border-bottom: 1px solid var(--line-1); background: var(--bg-1); }
+.layerStackBadge { display: grid; place-items: center; width: 30px; height: 30px; flex: none; border: 1px solid var(--accent-line); border-radius: var(--radius-s); background: var(--accent-subtle); color: var(--accent); }
+.layerStackTitle { margin: 0; font-size: 15px; font-weight: 600; color: var(--text-1); }
+.layerStackCount { font-size: 12px; color: var(--text-3); }
+.layerStackNote { padding: 3px 10px; border: 1px solid var(--line-1); border-radius: 999px; background: var(--bg-2); font-size: 11px; color: var(--text-3); }
+.layerStackHeaderAction { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.layerStackClose { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid var(--line-1); border-radius: var(--radius-s); background: var(--bg-2); color: var(--text-2); cursor: pointer; }
+.layerStackClose:hover { border-color: var(--accent-line); color: var(--accent); }
+.layerStackBody { flex: 1; display: grid; grid-template-columns: 1fr 320px; min-height: 0; }
+.layerStackStage { position: relative; overflow: hidden; background: var(--bg-2); }
+.layerStackImage { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; user-select: none; }
+.layerStackImage[data-hidden] { visibility: hidden; }
+.layerStackStageHint { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; color: var(--text-3); font-size: 13px; }
+.layerStackPanel { display: flex; flex-direction: column; min-height: 0; border-left: 1px solid var(--line-1); background: var(--bg-1); }
+.layerStackPanelTitle { margin: 0; padding: 12px 14px 8px; font-size: 12px; color: var(--text-3); }
+.layerStackRows { flex: 1; overflow-y: auto; padding: 0 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.layerStackRow { display: flex; align-items: center; gap: 6px; height: 44px; flex: none; padding: 0 8px 0 4px; border: 1px solid var(--line-1); border-radius: var(--radius-s); background: var(--bg-2); touch-action: none; user-select: none; }
+.layerStackRow[data-hidden-row] { opacity: 0.55; }
+.layerStackRow[data-dragging] { position: relative; z-index: 2; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--bg-2)); box-shadow: 0 10px 28px rgb(0 0 0 / 35%); }
+.layerStackGrip { display: grid; place-items: center; width: 24px; height: 32px; flex: none; border: none; border-radius: var(--radius-s); background: transparent; color: var(--text-3); cursor: grab; }
+.layerStackGrip:active { cursor: grabbing; }
+.layerStackThumb { width: 32px; height: 32px; flex: none; overflow: hidden; border: 1px solid var(--line-1); border-radius: 4px;
+  background-image: conic-gradient(var(--bg-3) 25%, var(--bg-1) 0 50%, var(--bg-3) 0 75%, var(--bg-1) 0); background-size: 12px 12px; }
+.layerStackThumbImage { width: 100%; height: 100%; object-fit: contain; }
+.layerStackMeta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.layerStackName { font-size: 12px; line-height: 1.3; color: var(--text-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.layerStackKind { font-size: 10px; line-height: 1.3; color: var(--text-3); }
+.layerStackEye { display: grid; place-items: center; width: 26px; height: 26px; flex: none; border: none; border-radius: var(--radius-s); background: transparent; color: var(--text-2); cursor: pointer; }
+.layerStackEye:hover { color: var(--accent); }
+.layerStackEye[data-hidden] { color: var(--text-3); }
+.layerStackFoot { padding: 10px 20px; border-top: 1px solid var(--line-1); background: var(--bg-1); }
+.layerStackFoot p { margin: 0; font-size: 12px; color: var(--text-3); }
+
+/* A 版工作台：素材为主舞台，采集使用抽屉，避免挤出第三个固定侧栏。 */
+.preview { container: workstage / inline-size; }
+.setupPreview { padding: 24px 12px 40px; }
+.collectionEntry { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 16px; margin-bottom: 24px; border: 1px solid var(--line-1); border-radius: var(--radius-m); background: var(--bg-1); }
+.collectionEntry strong { font-size: 12px; font-weight: 550; }
+.collectionEntry p { margin: 5px 0 0; color: var(--text-3); font-size: 11px; }
+@container workstage (max-width: 680px) {
+  .planSplit { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .board { grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+  .confirmBar { flex-wrap: wrap; gap: 12px; }
+  .confirmActions { flex-wrap: wrap; }
+}
+@media (max-width: 1180px) {
+  .shell { grid-template-columns: 300px minmax(0, 1fr); }
+  .shell[data-collapsed="true"] { grid-template-columns: 46px minmax(0, 1fr); }
+  .left { padding: 12px; }
+  .left[data-collapsed="true"] { padding: 12px 6px; }
+  .preview { padding: 14px; }
+  .setupPreview { padding: 16px 0 32px; }
+  .layerStackBody { grid-template-columns: minmax(0, 1fr) 280px; }
+  .editWorkspace { grid-template-columns: 48px minmax(0, 1fr) 290px; }
+}
+@media (max-width: 960px) {
+  .shell, .shell[data-collapsed="true"] { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .editWorkspace { grid-template-columns: 48px minmax(0, 1fr); }
+}

@@ -1,0 +1,97 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { adaptProject, adaptProjectDetail, type CreateProjectInput, type Project, type UpdateProjectInput } from "../adapters/projectDetail";
+import { invoke, fileInput } from "../client";
+import { qk } from "../queryKeys";
+export function useProjects(options: {
+    archived?: boolean;
+} = {}) {
+    const archived = options.archived ?? false;
+    return useQuery({
+        queryKey: qk.projects(archived),
+        queryFn: async () => {
+            const data = await invoke("listProjects", {
+                ...{ archived }
+            });
+            return {
+                items: data.items.map(adaptProject).filter((item) => item !== null),
+                nextCursor: data.nextCursor,
+            };
+        },
+    });
+}
+export function useProject(projectId: string | undefined) {
+    return useQuery({
+        queryKey: qk.project(projectId ?? ""),
+        enabled: Boolean(projectId),
+        queryFn: async () => {
+            const raw = await invoke("getProject", {
+                ...{ projectId: projectId! }
+            });
+            return adaptProjectDetail(raw);
+        },
+        // IPC 是即时通知，但连接建立或重连期间可能错过事件；生成中时轮询确保状态最终收敛。
+        refetchInterval: (query) => {
+            const jobs = query.state.data?.jobs ?? [];
+            return jobs.some((job) => job.status === "QUEUED" || job.status === "RUNNING") ? 2000 : false;
+        },
+    });
+}
+export function useCreateProject() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (body: CreateProjectInput) => invoke("createProject", {
+            ...body
+        }),
+        onSuccess: (project) => {
+            void queryClient.invalidateQueries({ queryKey: qk.projects() });
+            void queryClient.invalidateQueries({ queryKey: qk.project(project.id) });
+        },
+    });
+}
+export function useUpdateProject(projectId: string | undefined) {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (body: UpdateProjectInput) => invoke("updateProject", {
+            ...{ projectId: projectId! },
+            ...body
+        }),
+        onSuccess: (project) => {
+            void queryClient.invalidateQueries({ queryKey: qk.project(project.id) });
+            void queryClient.invalidateQueries({ queryKey: qk.projects() });
+        },
+    });
+}
+export function useArchiveProject() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ projectId, archived }: {
+            projectId: string;
+            archived: boolean;
+        }) => invoke("updateProject", {
+            ...{ projectId },
+            ...{ archived }
+        }),
+        onSuccess: (project) => {
+            void queryClient.invalidateQueries({ queryKey: ["projects"] });
+            void queryClient.invalidateQueries({ queryKey: qk.project(project.id) });
+        },
+    });
+}
+export function useDeleteProject() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (projectId: string) => {
+            await invoke("deleteProject", {
+                ...{ projectId }
+            });
+        },
+        onSuccess: (_, projectId) => {
+            queryClient.setQueryData<{
+                items: Project[];
+                nextCursor: string | null;
+            }>(qk.projects(true), (current) => current ? { ...current, items: current.items.filter((project) => project.id !== projectId) } : current);
+            void queryClient.invalidateQueries({ queryKey: ["projects"] });
+            queryClient.removeQueries({ queryKey: qk.project(projectId) });
+        },
+    });
+}

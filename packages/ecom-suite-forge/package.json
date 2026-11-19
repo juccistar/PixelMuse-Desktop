@@ -1,0 +1,25 @@
+{
+  "name": "@ecomgen/ecom-suite-forge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "node scripts/generate-skill-manifest.mjs && tsc -p tsconfig.json",
+    "gen:forge-skill": "node scripts/generate-skill-manifest.mjs",
+    "gen:forge-skill:check": "node scripts/generate-skill-manifest.mjs --check",
+    "test": "vitest run --passWithNoTests"
+  },
+  "files": [
+    "dist",
+    "LICENSE*",
+    "NOTICE*",
+    "UPSTREAM*"
+  ]
+}

@@ -1,0 +1,1022 @@
+import { describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import Database from "better-sqlite3";
+import { openDatabase } from "./database.js";
+import { EcomRepository, EXTERNAL_REQUEST_STARTED } from "./repository.js";
+import type { SuiteDocumentInput } from "@ecomgen/ecom-suite";
+import { MODEL_SPEC_DEFAULTS, type ModelSpec } from "@ecomgen/domain";
+
+function seedProvider(repository: EcomRepository) {
+  return repository.saveProvider({
+    name: "test",
+    baseUrl: "https://example.test/v1",
+    encryptedApiKey: "encrypted",
+    reasoningProtocol: "openai",
+    models: [
+      { id: "reasoner", supportsVision: true, supportsThinking: true, supportsTools: true, supportsStructuredOutput: true, imageApiKind: null },
+      { id: "image", supportsVision: false, supportsThinking: false, supportsTools: false, supportsStructuredOutput: false, imageApiKind: "openai_images" }
+    ]
+  });
+}
+
+type ProviderRecord = ReturnType<EcomRepository["saveProvider"]>;
+type ProjectInput = Parameters<EcomRepository["createProject"]>[0];
+type StoryboardItemInput = Parameters<EcomRepository["saveStoryboard"]>[3][number];
+
+/** 项目字段默认值：用例只覆盖与自身规则相关的差异。 */
+function makeProjectInput(provider: ProviderRecord, overrides: Partial<ProjectInput> = {}): ProjectInput {
+  return {
+    name: "cup",
+    category: null,
+    productDescription: null,
+    verifiedFacts: [],
+    prohibitedClaims: [],
+    brandGuidelines: {},
+    platformTargets: ["TAOBAO"],
+    targetMarket: null,
+    copyLanguage: null,
+    reasoningProviderId: provider.id,
+    reasoningModelId: "reasoner",
+    imageProviderId: provider.id,
+    imageModelId: "image",
+    defaultMode: "CREATIVE",
+    imageResolution: "1K",
+    imageAspectRatio: "AUTO",
+    candidatesPerType: 1,
+    ...overrides,
+  };
+}
+
+/** 分镜条目默认值：仅覆盖与用例规则相关的字段。 */
+function storyboardItem(overrides: Partial<StoryboardItemInput> = {}): StoryboardItemInput {
+  return {
+    assetType: "hero-image",
+    displayName: "杯子首图",
+    shotRole: null,
+    templateVariant: null,
+    candidateCount: 1,
+    referencedAssets: [],
+    mode: "CREATIVE",
+    status: "DRAFT",
+    promptInstruction: "hero",
+    compiledPrompt: null,
+    factClaims: [],
+    riskFlags: [],
+    sortOrder: 0,
+    ...overrides,
+  };
+}
+
+describe("EcomRepository", () => {
+  it("用户自定义模板 CRUD 往返，upsert 保留 createdAt，删除不阻断", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const created = repository.saveUserTemplate({ id: "custom-ab12cd34", name: "我的模板", prompt: "packshot of {product_description}", defaultSize: "1024x1024", supportsImageReference: true });
+    expect(repository.getUserTemplate("custom-ab12cd34")).toEqual(created);
+    const updated = repository.saveUserTemplate({ id: "custom-ab12cd34", name: "改名", prompt: "updated prompt", defaultSize: "1024x1536", supportsImageReference: false });
+    expect(updated.createdAt).toBe(created.createdAt);
+    expect(repository.getUserTemplate("custom-ab12cd34")).toMatchObject({ name: "改名", prompt: "updated prompt", defaultSize: "1024x1536", supportsImageReference: false });
+    const provider = seedProvider(repository);
+    const project = repository.createProject(makeProjectInput(provider));
+    repository.saveStoryboard(project.id, "", "DRAFT", [storyboardItem({ assetType: "custom-ab12cd34", displayName: "自定义项", promptInstruction: "cup", imageProviderId: provider.id, imageModelId: "image" })]);
+    // 模板被分镜引用时仍可删除；旧分镜的生成失败由 worker 模板解析显式报错
+    expect(repository.deleteUserTemplate("custom-ab12cd34")).toBe(true);
+    expect(repository.deleteUserTemplate("custom-ab12cd34")).toBe(false);
+    database.close();
+  });
+  it("删除 Provider 时级联置空项目引用，项目进入待重新选择状态", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const provider = seedProvider(repository);
+    const project = repository.createProject(makeProjectInput(provider));
+    repository.saveStoryboard(project.id, "", "CONFIRMED", [storyboardItem({ displayName: "主图", status: "CONFIRMED", promptInstruction: "cup", imageProviderId: provider.id, imageModelId: "image" })]);
+    const item = repository.listStoryboardItems(project.id)[0]!;
+    const queuedJob = repository.createJob({ id: "provider-delete-job", projectId: project.id, storyboardItemId: item.id, type: "GENERATE", input: {}, providerId: provider.id, modelId: "image" });
+    expect(repository.deleteProvider(provider.id)).toBe("deleted");
+    const after = repository.getProject(project.id);
+    expect(after).toMatchObject({ reasoningProviderId: null, reasoningModelId: null, imageProviderId: null, imageModelId: null });
+    expect(repository.getStoryboardItem(item.id)).toMatchObject({ imageProviderId: null, imageModelId: null });
+    expect(repository.getJob(queuedJob.id)).toMatchObject({ status: "CANCELLED", retryable: false, cancelRequested: true });
+    // 置空后可以立刻重建同名 Provider，不受残留引用阻挡
+    const recreated = seedProvider(repository);
+    expect(repository.deleteProvider(recreated.id)).toBe("deleted");
+    expect(repository.deleteProvider("missing-id")).toBe("missing");
+    database.close();
+  });
+  it("保留每个项目最近 20 份规划配置，并按 source job 去重", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const provider = seedProvider(repository);
+    const project = repository.createProject(makeProjectInput(provider));
+    const payload = { project: { ...project }, planning: { planningMode: "AI" as const, requestedTypes: [], targetImageCount: 6, userInstruction: null } };
+    for (let index = 0; index < 21; index += 1) {
+      const job = repository.createJob({ id: `plan-${index}`, projectId: project.id, storyboardItemId: null, type: "PLAN", input: {} });
+      repository.createPlanningConfigSnapshot({ projectId: project.id, sourceJobId: job.id, payload });
+    }
+    const snapshots = repository.listPlanningConfigSnapshots(project.id);
+    expect(snapshots).toHaveLength(20);
+    expect(snapshots.some((snapshot) => snapshot.sourceJobId === "plan-0")).toBe(false);
+    const existing = repository.createPlanningConfigSnapshot({ projectId: project.id, sourceJobId: "plan-20", payload });
+    expect(existing.sourceJobId).toBe("plan-20");
+    expect(repository.listPlanningConfigSnapshots(project.id)).toHaveLength(20);
+    database.close();
+  });
+  it("listLibraryItems 合并上传与生成、按 hash 去重、支持类型/搜索/游标分页", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const provider = seedProvider(repository);
+    const projectA = repository.createProject(makeProjectInput(provider, { name: "Alpha 店铺" }));
+    const projectB = repository.createProject(makeProjectInput(provider, { name: "Beta 店铺" }));
+    const storagePath = "assets/source.png";
+    const oldDuplicate = repository.createAsset({ projectId: projectA.id, role: "PRODUCT_TRUTH", storagePath, hash: "dup", originalName: "old.png", mimeType: "image/png", width: null, height: null });
+    const newDuplicate = repository.createAsset({ projectId: projectB.id, role: "PRODUCT_TRUTH", storagePath, hash: "dup", originalName: "new.png", mimeType: "image/png", width: null, height: null });
+    const unique = repository.createAsset({ projectId: projectB.id, role: "STYLE_REFERENCE", storagePath, hash: "unique", originalName: "unique.png", mimeType: "image/png", width: null, height: null });
+    repository.saveStoryboard(projectA.id, "lock", "DRAFT", [storyboardItem()]);
+    const item = repository.listStoryboardItems(projectA.id)[0]!;
+    const job = repository.createJob({ id: "library-gen-job", projectId: projectA.id, storyboardItemId: item.id, type: "GENERATE", input: {} });
+    const generated = repository.createOutput({ projectId: projectA.id, storyboardItemId: item.id, jobId: job.id, candidateIndex: 1, generationSnapshot: null, storagePath: "outputs/gen.png", hash: "gen", width: 1024, height: 1024 });
+    database.prepare("UPDATE assets SET created_at=? WHERE id=?").run("2026-01-01T00:00:00.000Z", oldDuplicate.id);
+    database.prepare("UPDATE assets SET created_at=? WHERE id=?").run("2026-02-01T00:00:00.000Z", newDuplicate.id);
+    database.prepare("UPDATE assets SET created_at=? WHERE id=?").run("2026-03-01T00:00:00.000Z", unique.id);
+    database.prepare("UPDATE outputs SET created_at=? WHERE id=?").run("2026-04-01T00:00:00.000Z", generated.id);
+
+    const all = repository.listLibraryItems({});
+    expect(all.items.map((entry) => entry.hash)).toEqual(["gen", "unique", "dup"]);
+    expect(all.total).toBe(3);
+    expect(all.items.find((entry) => entry.hash === "dup")?.id).toBe(`asset:${newDuplicate.id}`);
+    expect(all.items.find((entry) => entry.hash === "gen")).toMatchObject({ source: "GENERATED", kind: "GENERATED", width: 1024, name: "杯子首图", projectName: "Alpha 店铺" });
+
+    expect(repository.listLibraryItems({ kind: "GENERATED" }).items.map((entry) => entry.hash)).toEqual(["gen"]);
+    expect(repository.listLibraryItems({ kind: "PRODUCT" }).items.map((entry) => entry.hash)).toEqual(["dup"]);
+    expect(repository.listLibraryItems({ kind: "REFERENCE" }).items.map((entry) => entry.hash)).toEqual(["unique"]);
+    // "Alpha" 同时命中项目 A 的生成结果与项目 A 里的旧重复行：筛选先于去重，旧行成为该 hash 的代表项，
+    // 而不是先选出项目 B 的最新行、再按项目名把它过滤掉。
+    const alpha = repository.listLibraryItems({ q: "Alpha" });
+    expect(alpha.items.map((entry) => entry.hash)).toEqual(["gen", "dup"]);
+    expect(alpha.items.find((entry) => entry.hash === "dup")).toMatchObject({ id: `asset:${oldDuplicate.id}`, projectName: "Alpha 店铺", name: "old.png" });
+
+    // 来源项目筛选：同 hash 在不同项目下返回各项目自己的那条；两个条件互不相容时结果为空。
+    const inProjectA = repository.listLibraryItems({ projectId: projectA.id });
+    expect(inProjectA.items.map((entry) => entry.hash)).toEqual(["gen", "dup"]);
+    expect(inProjectA.items.find((entry) => entry.hash === "dup")?.id).toBe(`asset:${oldDuplicate.id}`);
+    const inProjectB = repository.listLibraryItems({ projectId: projectB.id });
+    expect(inProjectB.items.map((entry) => entry.hash)).toEqual(["unique", "dup"]);
+    expect(inProjectB.items.find((entry) => entry.hash === "dup")?.id).toBe(`asset:${newDuplicate.id}`);
+    expect(repository.listLibraryItems({ projectId: projectB.id, q: "old" }).total).toBe(0);
+
+    // 时间区间与类型/项目一样作用在来源行上：只命中旧行时，旧行成为该 hash 的代表项。
+    const recent = repository.listLibraryItems({ createdFrom: "2026-02-15T00:00:00.000Z" });
+    expect(recent.items.map((entry) => entry.hash)).toEqual(["gen", "unique"]);
+    // 区间只覆盖旧行时，旧行成为该 hash 的代表项（同 hash 的新行被时间条件筛掉）。
+    const older = repository.listLibraryItems({ createdTo: "2026-01-15T00:00:00.000Z" });
+    expect(older.items.map((entry) => entry.hash)).toEqual(["dup"]);
+    expect(older.items[0]).toMatchObject({ id: `asset:${oldDuplicate.id}`, projectName: "Alpha 店铺", name: "old.png" });
+    // 两端都含：单日区间恰好只命中当天那条。
+    expect(repository.listLibraryItems({ createdFrom: "2026-04-01T00:00:00.000Z", createdTo: "2026-04-01T00:00:00.000Z" }).items.map((entry) => entry.hash)).toEqual(["gen"]);
+
+    const firstPage = repository.listLibraryItems({ limit: 2 });
+    expect(firstPage.items.map((entry) => entry.hash)).toEqual(["gen", "unique"]);
+    expect(firstPage.nextCursor).not.toBeNull();
+    expect(firstPage.total).toBe(3);
+    const secondPage = repository.listLibraryItems({ limit: 2, cursor: firstPage.nextCursor });
+    expect(secondPage.items.map((entry) => entry.hash)).toEqual(["dup"]);
+    expect(secondPage.nextCursor).toBeNull();
+    // total 是筛选去重后的完整数量，不随游标推进缩小。
+    expect(secondPage.total).toBe(3);
+    // 游标越过末尾（比全部行都旧）时当前页为空，total 仍要反映完整筛选结果，而不是退化成 0。
+    const beyondEnd = repository.listLibraryItems({ cursor: Buffer.from("2000-01-01T00:00:00.000Z\u0000asset:zzz", "utf8").toString("base64url") });
+    expect(beyondEnd.items).toEqual([]);
+    expect(beyondEnd.total).toBe(3);
+
+    const assetSource = repository.resolveLibrarySource(`asset:${newDuplicate.id}`);
+    expect(assetSource).toMatchObject({ source: "UPLOADED", hash: "dup", role: "PRODUCT_TRUTH" });
+    const outputSource = repository.resolveLibrarySource(`output:${generated.id}`);
+    expect(outputSource).toMatchObject({ source: "GENERATED", storagePath: "outputs/gen.png", mimeType: "image/png" });
+    expect(repository.resolveLibrarySource("asset:missing")).toBeUndefined();
+    database.close();
+  });
+  it("listLibraryItems 按定妆照所属模特的身份维度筛选，其余来源行不参与", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const provider = seedProvider(repository);
+    const project = repository.createProject(makeProjectInput(provider));
+    const eastAsian = repository.createModel({ name: "小满", spec: { ...MODEL_SPEC_DEFAULTS, gender: "FEMALE", heritage: "EAST_ASIAN", stature: "STANDARD_165" }, notes: "" });
+    const nordic = repository.createModel({ name: "阿岚", spec: { ...MODEL_SPEC_DEFAULTS, gender: "MALE", heritage: "NORTHERN_EUROPEAN", stature: "TALL_172" }, notes: "" });
+    const portraits = [eastAsian, nordic].map((model, index) => {
+      const job = repository.createJob({ id: `cast-${index}`, projectId: null, storyboardItemId: null, type: "MODEL_CAST", input: { modelId: model.id }, providerId: provider.id, modelId: "image" });
+      return repository.createModelPortrait({ modelId: model.id, jobId: job.id, storagePath: `models/${model.id}/portrait.png`, hash: `portrait-${index}`, width: null, height: null, providerId: provider.id, imageModelId: "image", aspectRatio: "1:1" });
+    });
+    repository.createAsset({ projectId: project.id, role: "STYLE_REFERENCE", storagePath: "assets/style.png", hash: "style", originalName: "style.png", mimeType: "image/png", width: null, height: null });
+
+    // 身份维度只在定妆照行上有值：不加 kind=MODEL 也只会返回定妆照。
+    expect(repository.listLibraryItems({ modelSpec: { heritage: "EAST_ASIAN" } }).items.map((entry) => entry.id)).toEqual([`model:${portraits[0]!.id}`]);
+    // 维度之间取交集：性别 + 身高只命中同时成立的那位，跨维度不成立的组合为空。
+    expect(repository.listLibraryItems({ modelSpec: { gender: "MALE", stature: "TALL_172" } }).items.map((entry) => entry.id)).toEqual([`model:${portraits[1]!.id}`]);
+    expect(repository.listLibraryItems({ modelSpec: { gender: "MALE", heritage: "EAST_ASIAN" } }).total).toBe(0);
+    database.close();
+  });
+  it("listLibraryItems 把 LIKE 通配符当普通字符，特殊字符名称仍可被搜到", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const provider = seedProvider(repository);
+    const project = repository.createProject(makeProjectInput(provider, { name: "折扣店" }));
+    const storagePath = "assets/sale.png";
+    const special = repository.createAsset({ projectId: project.id, role: "PRODUCT_TRUTH", storagePath, hash: "sale", originalName: "50%_off.png", mimeType: "image/png", width: null, height: null });
+    repository.createAsset({ projectId: project.id, role: "PRODUCT_TRUTH", storagePath, hash: "plain", originalName: "cover.png", mimeType: "image/png", width: null, height: null });
+
+    // 未转义时 "%" 会命中全部、"x_" 会命中任意单字符；两条断言同时锁住转义行为。
+    expect(repository.listLibraryItems({ q: "%" })).toMatchObject({ total: 1 });
+    expect(repository.listLibraryItems({ q: "_" }).items.map((entry) => entry.hash)).toEqual(["sale"]);
+    expect(repository.listLibraryItems({ q: "\\" }).total).toBe(0);
+    // 前后空格忽略、大小写不敏感：与页面搜索框的口径一致。
+    expect(repository.listLibraryItems({ q: "  50%_OFF  " }).items.map((entry) => entry.id)).toEqual([`asset:${special.id}`]);
+    database.close();
+  });
+  it("listLibraryItems 纳入分层导出的元素/背景切图，排除 PSD 复合层", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const provider = seedProvider(repository);
+    const project = repository.createProject(makeProjectInput(provider, { name: "分层店铺" }));
+    repository.saveStoryboard(project.id, "lock", "DRAFT", [storyboardItem()]);
+    const item = repository.listStoryboardItems(project.id)[0]!;
+    const generateJob = repository.createJob({ id: "layer-gen-job", projectId: project.id, storyboardItemId: item.id, type: "GENERATE", input: {} });
+    const output = repository.createOutput({ projectId: project.id, storyboardItemId: item.id, jobId: generateJob.id, candidateIndex: 1, generationSnapshot: null, storagePath: "outputs/hero.png", hash: "hero-output", width: 1024, height: 1024 });
+    const exportJob = repository.createJob({ id: "layer-export-job", projectId: project.id, storyboardItemId: item.id, type: "LAYER_EXPORT", input: {} });
+    const layerExport = repository.createLayerExport({
+      projectId: project.id,
+      outputId: output.id,
+      jobId: exportJob.id,
+      planId: null,
+      status: "SUCCEEDED",
+      includeBackground: true,
+      psdStoragePath: "layers/x/composite.psd",
+      layerFiles: [
+        { name: "01_瓶子.png", kind: "element", storagePath: "layers/x/01.png", hash: "layer-bottle" },
+        { name: "00_背景.png", kind: "background", storagePath: "layers/x/00.png", hash: "layer-bg" },
+        { name: "图层.psd", kind: "composite", storagePath: "layers/x/composite.psd", hash: "layer-psd" },
+      ],
+      error: null,
+    });
+    database.prepare("UPDATE layer_exports SET created_at=? WHERE id=?").run("2026-05-01T00:00:00.000Z", layerExport.id);
+
+    expect(repository.listLibraryItems({ kind: "GENERATED" }).items.map((entry) => entry.hash)).toEqual(["hero-output"]);
+    const layers = repository.listLibraryItems({ kind: "LAYER" });
+    expect(layers.items.map((entry) => entry.hash)).toEqual(["layer-bg", "layer-bottle"]);
+    const bottle = layers.items.find((entry) => entry.hash === "layer-bottle")!;
+    expect(bottle).toMatchObject({ id: `layer:${layerExport.id}:0`, source: "GENERATED", kind: "LAYER", name: "杯子首图 · 01_瓶子.png", width: 1024, height: 1024 });
+    expect(layers.items.some((entry) => entry.hash === "layer-psd")).toBe(false);
+
+    expect(repository.resolveLibrarySource(`layer:${layerExport.id}:0`)).toMatchObject({ source: "GENERATED", storagePath: "layers/x/01.png", hash: "layer-bottle", originalName: "01_瓶子.png" });
+    expect(repository.resolveLibrarySource(`layer:${layerExport.id}:2`)).toBeUndefined();
+    expect(repository.findLibrarySourcePath("layer-bottle")).toBe("layers/x/01.png");
+    database.close();
+  });
+  it("恢复任务时不自动重试结果未知的外部图像请求", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const provider = seedProvider(repository);
+    const project = repository.createProject(makeProjectInput(provider));
+    const safe = repository.createJob({ id: "recover-safe", projectId: project.id, storyboardItemId: null, type: "PLAN", input: {} });
+    const uncertain = repository.createJob({ id: "recover-uncertain", projectId: project.id, storyboardItemId: null, type: "GENERATE", input: {} });
+    database.prepare("UPDATE jobs SET status='RUNNING' WHERE id IN (?, ?)").run(safe.id, uncertain.id);
+    database.prepare("UPDATE jobs SET provider_task_id=? WHERE id=?").run(EXTERNAL_REQUEST_STARTED, uncertain.id);
+    expect(repository.recoverInterruptedJobs().map((job) => job.id)).toEqual([safe.id]);
+    expect(repository.getJob(safe.id)?.status).toBe("QUEUED");
+    expect(repository.getJob(uncertain.id)).toMatchObject({ status: "UNKNOWN", retryable: false, error: { message: "外部图像请求结果未知，已停止自动重试以避免重复计费" } });
+    database.close();
+  });
+
+  it("全局套图反推任务不绑定项目，指纹按 NULL 隔离且草稿可入库", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const forgeJob = repository.createJob({ id: "forge-1", projectId: null, storyboardItemId: null, type: "SUITE_FORGE", input: { providerId: "p", modelId: "m" }, requestFingerprint: "forge-fp" });
+    expect(forgeJob.projectId).toBeNull();
+
+    // 崩溃恢复必须覆盖无项目归属的运行中任务
+    database.prepare("UPDATE jobs SET status='RUNNING' WHERE id=?").run(forgeJob.id);
+    expect(repository.recoverInterruptedJobs().map((job) => job.id)).toEqual([forgeJob.id]);
+    expect(repository.getJob(forgeJob.id)?.status).toBe("QUEUED");
+
+    const provider = seedProvider(repository);
+    const project = repository.createProject(makeProjectInput(provider));
+    // 指纹含 NULL 项目：全局任务与项目任务互不串号
+    expect(repository.findJobByFingerprint(null, "forge-fp")?.id).toBe("forge-1");
+    repository.createJob({ id: "project-job", projectId: project.id, storyboardItemId: null, type: "PLAN", input: {}, requestFingerprint: "forge-fp" });
+    expect(repository.findJobByFingerprint(project.id, "forge-fp")?.id).toBe("project-job");
+    expect(repository.findJobByFingerprint(null, "forge-fp")?.id).toBe("forge-1");
+
+    const payload = {
+      name: "示例套图",
+      category: { l1: "美妆", l2: "面部护理", leaf: "洁面乳" },
+      styleLock: { lockText: "warm beige studio" },
+      shots: [{ shotId: "hero", order: 1, shotRole: "HERO", displayName: "主图", promptTemplate: "hero {product}" }],
+    } satisfies SuiteDocumentInput;
+    expect(repository.saveSuiteForgeResult({ jobId: forgeJob.id, payload })).toMatchObject({ status: "DRAFT", suiteId: null });
+    // upsert 不产生重复草稿
+    expect(repository.saveSuiteForgeResult({ jobId: forgeJob.id, payload }).jobId).toBe(forgeJob.id);
+    expect(repository.commitSuiteForgeResult(forgeJob.id, "custom-suite-ab12cd34")).toMatchObject({ status: "COMMITTED", suiteId: "custom-suite-ab12cd34" });
+    expect(repository.getSuiteForgeResult(forgeJob.id)?.suiteId).toBe("custom-suite-ab12cd34");
+    // 全局任务不进入任何项目的任务列表
+    expect(repository.listJobs(project.id).map((job) => job.id)).toEqual(["project-job"]);
+    database.close();
+  });
+
+  it("按归档状态隔离项目并支持恢复", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const provider = seedProvider(repository);
+    const input = makeProjectInput(provider);
+    const project = repository.createProject(input);
+    expect(project.archivedAt).toBeNull();
+    expect(repository.listProjects()).toHaveLength(1);
+    repository.updateProject(project.id, { archivedAt: "2026-08-01T01:00:00.000Z" });
+    expect(repository.listProjects()).toHaveLength(0);
+    expect(repository.listProjects(true).map((item) => item.id)).toEqual([project.id]);
+    repository.updateProject(project.id, { archivedAt: null });
+    expect(repository.listProjects().map((item) => item.id)).toEqual([project.id]);
+    database.close();
+  });
+
+  it("只允许永久删除已归档项目", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const provider = seedProvider(repository);
+    const project = repository.createProject(makeProjectInput(provider));
+    expect(repository.deleteArchivedProject(project.id)).toBe("not_archived");
+    repository.updateProject(project.id, { archivedAt: "2026-08-01T01:00:00.000Z" });
+    expect(repository.deleteArchivedProject(project.id)).toBe("deleted");
+    expect(repository.getProject(project.id)).toBeUndefined();
+    expect(repository.deleteArchivedProject(project.id)).toBe("missing");
+    database.close();
+  });
+
+  // planningRevision 是规划指纹的一部分：只有改变规划事实的更新才递增，否则旧规划会被错误失效
+  it("规划相关事实变化时递增 planningRevision，改名与归档不递增", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const provider = seedProvider(repository);
+    const project = repository.createProject(makeProjectInput(provider));
+    expect(project.planningRevision).toBe(0);
+    // 提示词语种缺省落 CHINESE；它参与规划提示词，变化必须递增 planningRevision
+    expect(project.promptLanguage).toBe("CHINESE");
+    expect(repository.updateProject(project.id, { name: "renamed" })?.planningRevision).toBe(0);
+    expect(repository.updateProject(project.id, { archivedAt: "2026-08-01T01:00:00.000Z" })?.planningRevision).toBe(0);
+    expect(repository.updateProject(project.id, { verifiedFacts: ["304 不锈钢"] })?.planningRevision).toBe(1);
+    // brandGuidelines 内容相同、键序不同：不递增
+    const guidelines = { tone: "专业", scene: "厨房" };
+    expect(repository.updateProject(project.id, { brandGuidelines: guidelines })?.planningRevision).toBe(2);
+    expect(repository.updateProject(project.id, { brandGuidelines: { scene: "厨房", tone: "专业" } })?.planningRevision).toBe(2);
+    expect(repository.updateProject(project.id, { brandGuidelines: { scene: "客厅", tone: "专业" } })?.planningRevision).toBe(3);
+    const languageChanged = repository.updateProject(project.id, { promptLanguage: "ENGLISH" });
+    expect(languageChanged?.planningRevision).toBe(4);
+    expect(languageChanged?.promptLanguage).toBe("ENGLISH");
+    database.close();
+  });
+
+  it("拒绝被改成旧 Web 结构的 v3 项目表且不改写原行", () => {
+    const directory = mkdtempSync(join(tmpdir(), "ecomgen-migration-"));
+    const filename = join(directory, "ecomgen.db");
+    try {
+      const database = openDatabase(filename);
+      database.exec("DROP TABLE projects");
+      database.exec(`
+        CREATE TABLE projects (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          category TEXT,
+          product_description TEXT,
+          verified_facts_json TEXT NOT NULL DEFAULT '[]',
+          prohibited_claims_json TEXT NOT NULL DEFAULT '[]',
+          brand_guidelines_json TEXT NOT NULL DEFAULT '{}',
+          platform_targets_json TEXT NOT NULL,
+          reasoning_provider_id TEXT NOT NULL,
+          reasoning_model_id TEXT NOT NULL,
+          image_provider_id TEXT NOT NULL,
+          image_model_id TEXT NOT NULL,
+          default_mode TEXT NOT NULL,
+          image_resolution TEXT NOT NULL DEFAULT '1K',
+          image_aspect_ratio TEXT NOT NULL DEFAULT 'AUTO',
+          candidates_per_type INTEGER NOT NULL DEFAULT 1,
+          web_research_enabled INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+        INSERT INTO projects VALUES (
+          'legacy-project', 'legacy', NULL, NULL, '[]', '[]', '{}', '["TAOBAO"]',
+          'reasoning', 'reasoner', 'image', 'image-model', 'CREATIVE', '1K', 'AUTO', 1, 0,
+          '2026-01-01T00:00:00.000Z', '2026-01-01T00:00:00.000Z'
+        );
+      `);
+      database.close();
+
+      expect(() => openDatabase(filename)).toThrow('Incomplete desktop schema');
+      const unchanged = new Database(filename);
+      expect(unchanged.prepare("SELECT platform_targets_json FROM projects WHERE id='legacy-project'").get()).toEqual({ platform_targets_json: '["TAOBAO"]' });
+      unchanged.close();
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("拒绝导入无桌面版本标识的旧 Web 输出表，保留审核与血缘原行", () => {
+    const directory = mkdtempSync(join(tmpdir(), "ecomgen-output-migration-"));
+    const filename = join(directory, "ecomgen.db");
+    try {
+      const legacy = new Database(filename);
+      legacy.exec(`
+        CREATE TABLE outputs (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL,
+          storyboard_item_id TEXT NOT NULL,
+          job_id TEXT NOT NULL,
+          candidate_index INTEGER NOT NULL,
+          generation_snapshot_json TEXT,
+          storage_path TEXT NOT NULL,
+          hash TEXT NOT NULL,
+          review_decision TEXT NOT NULL,
+          review_note TEXT,
+          created_at TEXT NOT NULL,
+          parent_output_id TEXT,
+          root_output_id TEXT,
+          edit_session_id TEXT,
+          edit_turn_id TEXT
+        );
+        INSERT INTO outputs VALUES ('root','p','item','job',1,NULL,'root.png','hash','NEEDS_REVIEW',NULL,'2026-01-01T00:00:00.000Z',NULL,NULL,NULL,NULL);
+      `);
+      legacy.close();
+      expect(() => openDatabase(filename)).toThrow('Unversioned databases are not supported');
+      const unchanged = new Database(filename);
+      expect(unchanged.prepare("SELECT id,review_decision,parent_output_id FROM outputs").get()).toEqual({ id: 'root', review_decision: 'NEEDS_REVIEW', parent_output_id: null });
+      unchanged.close();
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("拒绝将无版本输出表作为桌面库升级，不隐式补列或创建索引", () => {
+    const directory = mkdtempSync(join(tmpdir(), "ecomgen-generation-key-migration-"));
+    const filename = join(directory, "ecomgen.db");
+    try {
+      const legacy = new Database(filename);
+      legacy.exec(`
+        CREATE TABLE outputs (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL,
+          storyboard_item_id TEXT NOT NULL,
+          job_id TEXT NOT NULL,
+          candidate_index INTEGER NOT NULL,
+          generation_snapshot_json TEXT,
+          storage_path TEXT NOT NULL,
+          hash TEXT NOT NULL,
+          created_at TEXT NOT NULL,
+          parent_output_id TEXT,
+          root_output_id TEXT,
+          edit_session_id TEXT,
+          edit_turn_id TEXT
+        );
+        INSERT INTO outputs VALUES ('root','p','item','job',1,NULL,'root.png','hash','2026-01-01T00:00:00.000Z',NULL,NULL,NULL,NULL);
+      `);
+      legacy.close();
+
+      expect(() => openDatabase(filename)).toThrow('Unversioned databases are not supported');
+      const unchanged = new Database(filename);
+      expect(unchanged.prepare('PRAGMA table_info(outputs)').all()).not.toEqual(expect.arrayContaining([expect.objectContaining({ name: 'generation_key' })]));
+      expect(unchanged.prepare('SELECT id FROM outputs').get()).toEqual({ id: 'root' });
+      unchanged.close();
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it("persists search sources in ascending priority order without exposing a key through the record mapper", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    repository.saveSearchSource({ name: "备用", kind: "tavily", baseUrl: "https://api.tavily.com/search", encryptedApiKey: "encrypted-backup", priority: 20, enabled: true });
+    repository.saveSearchSource({ name: "主源", kind: "brave", baseUrl: "https://api.search.brave.com/res/v1/web/search", encryptedApiKey: "encrypted-primary", priority: 5, enabled: true });
+    expect(repository.listSearchSources().map((source) => [source.name, source.priority, source.encryptedApiKey])).toEqual([
+      ["主源", 5, "encrypted-primary"],
+      ["备用", 20, "encrypted-backup"]
+    ]);
+    database.close();
+  });
+
+  it("stores a copywriting result separately from project fields and associates it with its job", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const provider = seedProvider(repository);
+    const project = repository.createProject(makeProjectInput(provider));
+    const job = repository.createJob({ id: "copywrite-job", projectId: project.id, storyboardItemId: null, type: "COPYWRITE", input: { target: "PRODUCT_DESCRIPTION" } });
+    repository.saveCopywritingResult({ jobId: job.id, projectId: project.id, target: "PRODUCT_DESCRIPTION", content: "产品名称：随行杯" });
+    expect(repository.getCopywritingResult(job.id)).toMatchObject({ jobId: job.id, projectId: project.id, target: "PRODUCT_DESCRIPTION", content: "产品名称：随行杯" });
+    expect(repository.getProject(project.id)?.productDescription).toBeNull();
+    database.close();
+  });
+
+  it("keeps an edit session across derived outputs and records immutable output lineage", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database); const provider = seedProvider(repository);
+    const project = repository.createProject(makeProjectInput(provider));
+    const storyboard = repository.saveStoryboard(project.id, "", "CONFIRMED", [storyboardItem({ status: "CONFIRMED", promptInstruction: "cup" })]);
+    const item = repository.listStoryboardItems(project.id)[0]!;
+    const job = repository.createJob({ id: "edit-lineage-job", projectId: project.id, storyboardItemId: item.id, type: "GENERATE", input: {} });
+    const root = repository.createOutput({ projectId: project.id, storyboardItemId: item.id, jobId: job.id, candidateIndex: 1, generationSnapshot: null, storagePath: "outputs/root.png", hash: "root" });
+    const session = repository.createEditSession({ id: "edit-session", projectId: project.id, currentOutputId: root.id, status: "ACTIVE", memorySummary: { constraints: ["保留背景"] } });
+    const turn = repository.createEditTurn({ id: "edit-turn", sessionId: session.id, projectId: project.id, baseOutputId: root.id, status: "SUCCEEDED", message: "变亮", annotations: {}, editMaskPath: null, editMaskHash: null, protectMaskPath: null, protectMaskHash: null, referenceAssetIds: [], plan: {}, error: null });
+    const derived = repository.createOutput({ projectId: project.id, storyboardItemId: item.id, jobId: job.id, candidateIndex: 1, generationSnapshot: null, storagePath: "outputs/derived.png", hash: "derived", parentOutputId: root.id, rootOutputId: root.id, editSessionId: session.id, editTurnId: turn.id });
+    repository.updateEditSession(session.id, { currentOutputId: derived.id });
+    expect(repository.getActiveEditSession(project.id, derived.id)?.id).toBe(session.id);
+    expect(repository.getOutput(derived.id)).toMatchObject({ parentOutputId: root.id, rootOutputId: root.id, editTurnId: turn.id });
+    expect(repository.listEditOutputs(session.id).map((output) => output.id)).toEqual([derived.id]);
+    expect(repository.isOutputInEditSession(session.id, root.id)).toBe(true);
+    expect(repository.isOutputInEditSession(session.id, derived.id)).toBe(true);
+    expect(repository.isOutputInEditSession(session.id, "other-output")).toBe(false);
+    repository.updateProject(project.id, { archivedAt: "2026-08-01T01:00:00.000Z" });
+    expect(repository.deleteArchivedProject(project.id)).toBe("deleted");
+    expect(repository.getProject(project.id)).toBeUndefined();
+    database.close();
+  });
+
+  it("keeps storyboard items bound to a project version and persists edits", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const provider = seedProvider(repository);
+    const project = repository.createProject(makeProjectInput(provider, {
+      category: "home",
+      productDescription: "insulated travel cup",
+      verifiedFacts: ["304 stainless steel body"],
+      prohibitedClaims: ["keeps hot for 24 hours"],
+      brandGuidelines: { accent: "#1A3A2E" },
+      defaultMode: "PIXEL_PROTECTED",
+      candidatesPerType: 2,
+    }));
+    const storyboard = repository.saveStoryboard(project.id, "quiet clean commercial photography", "DRAFT", [storyboardItem({
+      displayName: "白底/纯色底产品主图",
+      shotRole: "HERO",
+      templateVariant: "luxury",
+      candidateCount: 2,
+      mode: "PIXEL_PROTECTED",
+      promptInstruction: "hero image",
+    })]);
+    const item = repository.listStoryboardItems(project.id)[0];
+    expect(storyboard.version).toBe(1);
+    expect(item.displayName).toBe("白底/纯色底产品主图");
+    expect(item.shotRole).toBe("HERO");
+    expect(item.candidateCount).toBe(2);
+    expect(item.imageProviderId).toBe(provider.id);
+    expect(item.imageModelId).toBe("image");
+    expect(item.imageResolution).toBe("1K");
+    expect(item.imageAspectRatio).toBe("AUTO");
+    expect(item.templateVariant).toBe("luxury");
+    expect(repository.getProject(project.id)?.verifiedFacts).toEqual(["304 stainless steel body"]);
+    expect(repository.getProject(project.id)?.candidatesPerType).toBe(2);
+    const appended = repository.saveStoryboard(project.id, "second campaign", "DRAFT", [storyboardItem({
+      assetType: "lifestyle-scene",
+      displayName: "场景化生活图",
+      shotRole: "SCENE",
+      promptInstruction: "lifestyle",
+    })]);
+    expect(appended.version).toBe(2);
+    expect(repository.listStoryboardItems(project.id).map((row) => row.assetType)).toEqual(["hero-image", "lifestyle-scene"]);
+    expect(repository.deleteStoryboardItem(repository.listStoryboardItems(project.id)[1]!.id)?.assetType).toBe("lifestyle-scene");
+    expect(repository.listStoryboardItems(project.id).map((row) => row.assetType)).toEqual(["hero-image"]);
+    expect(provider.reasoningProtocol).toBe("openai");
+    expect(provider.models[0]?.supportsThinking).toBe(true);
+    expect(repository.confirmStoryboard(project.id)?.status).toBe("CONFIRMED");
+    expect(repository.listStoryboardItems(project.id)[0]?.status).toBe("CONFIRMED");
+    expect(repository.updateStoryboardItem(item.id, { imageResolution: "2K", imageAspectRatio: "1:1", candidateCount: 3 })).toMatchObject({
+      imageResolution: "2K",
+      imageAspectRatio: "1:1",
+      candidateCount: 3,
+    });
+    database.close();
+  });
+
+  it("records the generation job fingerprint, cancellation flag and web research audit", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const provider = seedProvider(repository);
+    const project = repository.createProject(makeProjectInput(provider));
+    repository.saveStoryboard(project.id, "lock", "DRAFT", [storyboardItem()]);
+    const item = repository.listStoryboardItems(project.id)[0]!;
+    const job = repository.createJob({ id: "job-1", projectId: project.id, storyboardItemId: item.id, type: "GENERATE", input: { candidateIndex: 1 }, requestFingerprint: "fp-1", providerId: provider.id, modelId: "image", estimatedCost: { status: "UNKNOWN" } });
+    expect(repository.findJobByFingerprint(project.id, "fp-1")?.id).toBe("job-1");
+    expect(repository.updateJob(job.id, { cancelRequested: true })?.cancelRequested).toBe(true);
+    expect(repository.createWebResearchAudit(job.id, "AVAILABLE").invocationCount).toBe(0);
+    repository.recordWebResearchSearch(job.id);
+    repository.recordWebResearchAttempt({ jobId: job.id, query: "product photography lighting", sourceId: "brave", sourceName: "Brave", sourceKind: "brave", status: "FAILED", resultCount: 0, errorMessage: "HTTP 503" });
+    repository.recordWebResearchAttempt({ jobId: job.id, query: "product photography lighting", sourceId: "tavily", sourceName: "Tavily", sourceKind: "tavily", status: "SUCCEEDED", resultCount: 3, errorMessage: null });
+    expect(repository.getWebResearchAudit(job.id)).toMatchObject({ invocationCount: 1, failedAttemptCount: 1, successfulAttemptCount: 1 });
+    expect(repository.listWebResearchAttempts(job.id)).toMatchObject([{ sourceId: "brave", status: "FAILED" }, { sourceId: "tavily", status: "SUCCEEDED", resultCount: 3 }]);
+    database.close();
+  });
+
+  it("persists generated outputs and reuses the record for a duplicate generation key", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const provider = seedProvider(repository);
+    const project = repository.createProject(makeProjectInput(provider));
+    repository.saveStoryboard(project.id, "lock", "DRAFT", [storyboardItem()]);
+    const item = repository.listStoryboardItems(project.id)[0]!;
+    const job = repository.createJob({ id: "job-1", projectId: project.id, storyboardItemId: item.id, type: "GENERATE", input: {} });
+    const output = repository.createOutput({
+      projectId: project.id,
+      storyboardItemId: item.id,
+      jobId: job.id,
+      candidateIndex: 1,
+      generationSnapshot: { providerId: provider.id, modelId: "image", resolution: "1K", aspectRatio: "AUTO", size: "1024x1024", candidateIndex: 1 },
+      storagePath: "outputs/cup.png",
+      hash: "hash",
+      generationKey: "generation-key-1"
+    });
+    expect(output.candidateIndex).toBe(1);
+    expect(repository.getOutputByGenerationKey("generation-key-1")?.id).toBe(output.id);
+    const duplicate = repository.createOutput({
+      projectId: project.id,
+      storyboardItemId: item.id,
+      jobId: job.id,
+      candidateIndex: 1,
+      generationSnapshot: output.generationSnapshot,
+      storagePath: "outputs/duplicate.png",
+      hash: "duplicate",
+      generationKey: "generation-key-1"
+    });
+    expect(duplicate.id).toBe(output.id);
+    // 幂等冲突只处理 generationKey；其它约束错误必须真实失败，不能返回未插入的伪产物。
+    expect(() => repository.createOutput({ ...output, generationKey: null, storagePath: null as unknown as string })).toThrow('NOT NULL');
+    expect(repository.listOutputs(project.id)).toHaveLength(1);
+    database.close();
+  });
+
+  it("deletes an asset row and reports missing ids", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const provider = seedProvider(repository);
+    const project = repository.createProject({
+      name: "cup",
+      category: null,
+      productDescription: null,
+      verifiedFacts: [],
+      prohibitedClaims: [],
+      brandGuidelines: {},
+      platformTargets: ["TAOBAO"],
+      targetMarket: null,
+      copyLanguage: null,
+      reasoningProviderId: provider.id,
+      reasoningModelId: "reasoner",
+      imageProviderId: provider.id,
+      imageModelId: "image",
+      defaultMode: "CREATIVE",
+      imageResolution: "1K",
+      imageAspectRatio: "AUTO",
+      candidatesPerType: 1
+    });
+    const asset = repository.createAsset({ projectId: project.id, role: "PRODUCT_TRUTH", storagePath: "assets/cup.png", hash: "hash", originalName: "cup.png", mimeType: "image/png", width: null, height: null });
+    expect(repository.deleteAsset(asset.id)?.id).toBe(asset.id);
+    expect(repository.getAsset(asset.id)).toBeUndefined();
+    expect(repository.deleteAsset(asset.id)).toBeUndefined();
+    database.close();
+  });
+
+  it("persists ordered project and temporary references on an edit turn", () => {
+    const database = openDatabase(":memory:"); const repository = new EcomRepository(database); const provider = seedProvider(repository);
+    const project = repository.createProject(makeProjectInput(provider));
+    repository.saveStoryboard(project.id, "lock", "DRAFT", [{ assetType: "hero-image", displayName: "主图", shotRole: null, templateVariant: null, candidateCount: 1, referencedAssets: [], mode: "CREATIVE", status: "DRAFT", promptInstruction: "hero", compiledPrompt: null, factClaims: [], riskFlags: [], sortOrder: 0 }]);
+    const item = repository.listStoryboardItems(project.id)[0]!; const job = repository.createJob({ id: "reference-job", projectId: project.id, storyboardItemId: item.id, type: "GENERATE", input: {} });
+    const output = repository.createOutput({ projectId: project.id, storyboardItemId: item.id, jobId: job.id, candidateIndex: 1, generationSnapshot: null, storagePath: "outputs/base.png", hash: "base" });
+    const session = repository.createEditSession({ id: "reference-session", projectId: project.id, currentOutputId: output.id, status: "ACTIVE", memorySummary: {} });
+    const projectAsset = repository.createAsset({ projectId: project.id, role: "PACKAGING", storagePath: "assets/package.png", hash: "package", originalName: "package.png", mimeType: "image/png", width: null, height: null });
+    const temporary = repository.createEditReferenceAsset({ id: "temporary-reference", projectId: project.id, sessionId: session.id, turnId: null, storagePath: "edits/reference.png", hash: "temporary", originalName: "label.png", mimeType: "image/png", purpose: "LABEL", expiresAt: "2099-01-01T00:00:00.000Z" });
+    const selections = [{ id: projectAsset.id, source: "PROJECT" as const, purpose: "PACKAGING" as const, order: 0 }, { id: temporary.id, source: "TEMPORARY" as const, purpose: "LABEL" as const, order: 1 }];
+    const turn = repository.createEditTurn({ id: "reference-turn", sessionId: session.id, projectId: project.id, baseOutputId: output.id, status: "PLANNING", message: "replace", annotations: {}, editMaskPath: null, editMaskHash: null, protectMaskPath: null, protectMaskHash: null, referenceAssetIds: [projectAsset.id], referenceSelections: selections, plan: null, error: null });
+    repository.attachEditReferenceAssets(session.id, turn.id, [temporary.id]);
+    expect(repository.getEditTurn(turn.id)?.referenceSelections).toEqual(selections);
+    expect(repository.getEditReferenceAsset(temporary.id)?.turnId).toBe(turn.id);
+    database.close();
+  });
+
+  it("summarizes list covers with earliest product photo, latest output cover, and extra previews", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const provider = seedProvider(repository);
+    const projectInput = makeProjectInput(provider);
+    const withOutputs = repository.createProject({ ...projectInput, name: "with-outputs" });
+    const empty = repository.createProject({ ...projectInput, name: "empty" });
+    const firstAsset = repository.createAsset({ projectId: withOutputs.id, role: "PRODUCT_TRUTH", storagePath: "assets/first.png", hash: "h1", originalName: "first.png", mimeType: "image/png", width: null, height: null });
+    const secondAsset = repository.createAsset({ projectId: withOutputs.id, role: "PRODUCT_TRUTH", storagePath: "assets/second.png", hash: "h2", originalName: "second.png", mimeType: "image/png", width: null, height: null });
+    repository.createAsset({ projectId: withOutputs.id, role: "STYLE_REFERENCE", storagePath: "assets/ref.png", hash: "h3", originalName: "ref.png", mimeType: "image/png", width: null, height: null });
+    database.prepare("UPDATE assets SET created_at=? WHERE id=?").run("2026-08-01T00:00:00.000Z", firstAsset.id);
+    database.prepare("UPDATE assets SET created_at=? WHERE id=?").run("2026-08-01T00:01:00.000Z", secondAsset.id);
+    const storyboard = repository.saveStoryboard(withOutputs.id, "lock", "DRAFT", [storyboardItem({ displayName: "主图" })]);
+    const item = repository.listStoryboardItems(withOutputs.id)[0]!;
+    const job = repository.createJob({ id: "job-cover", projectId: withOutputs.id, storyboardItemId: item.id, type: "GENERATE", input: {} });
+    const oldest = repository.createOutput({ projectId: withOutputs.id, storyboardItemId: item.id, jobId: job.id, candidateIndex: 1, generationSnapshot: null, storagePath: "out/1.png", hash: "o1" });
+    const middle = repository.createOutput({ projectId: withOutputs.id, storyboardItemId: item.id, jobId: job.id, candidateIndex: 2, generationSnapshot: null, storagePath: "out/2.png", hash: "o2" });
+    const newest = repository.createOutput({ projectId: withOutputs.id, storyboardItemId: item.id, jobId: job.id, candidateIndex: 3, generationSnapshot: null, storagePath: "out/3.png", hash: "o3" });
+    database.prepare("UPDATE outputs SET created_at=? WHERE id=?").run("2026-08-01T01:00:00.000Z", oldest.id);
+    database.prepare("UPDATE outputs SET created_at=? WHERE id=?").run("2026-08-01T01:01:00.000Z", middle.id);
+    database.prepare("UPDATE outputs SET created_at=? WHERE id=?").run("2026-08-01T01:02:00.000Z", newest.id);
+    expect(storyboard.version).toBe(1);
+    const covers = repository.listProjectCovers([withOutputs.id, empty.id]);
+    const filled = covers.get(withOutputs.id);
+    expect(filled?.productAssetId).toBe(firstAsset.id);
+    expect(filled?.coverOutputId).toBe(newest.id);
+    expect(filled?.previewOutputIds).toEqual([middle.id, oldest.id]);
+    expect(filled?.outputCount).toBe(3);
+    expect(covers.get(empty.id)).toEqual({ productAssetId: null, coverOutputId: null, previewOutputIds: [], outputCount: 0 });
+    database.close();
+  });
+
+  it("模特库 CRUD 往返，选定切换保证每模特至多一张且同 hash 候选幂等", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const created = repository.createModel({ name: "小满", spec: makeModelSpec(), notes: "甜酷风" });
+    expect(repository.getModel(created.id)).toEqual(created);
+    expect(repository.listModels()).toEqual([created]);
+
+    const renamed = repository.updateModel(created.id, { name: "小满 2.0", notes: "清冷挂" });
+    expect(renamed).toMatchObject({ name: "小满 2.0", notes: "清冷挂" });
+    expect(renamed?.createdAt).toBe(created.createdAt);
+
+    const withFace = repository.setModelReferenceFace(created.id, "models/ref-face.png", "face-hash");
+    expect(withFace).toMatchObject({ referenceFacePath: "models/ref-face.png", referenceFaceHash: "face-hash" });
+    expect(repository.setModelReferenceFace(created.id, null, null)?.referenceFacePath).toBeNull();
+    expect(repository.setModelReferenceFace("missing-model", "x.png", "x")).toBeUndefined();
+
+    const job = repository.createJob({ id: "job-cast", projectId: null, storyboardItemId: null, type: "MODEL_CAST", input: { modelId: created.id } });
+    const portraitInput = { modelId: created.id, jobId: job.id, storagePath: "models/p1.png", hash: "portrait-1", width: 1024, height: 1536, providerId: "provider-1", imageModelId: "image-model", aspectRatio: "AUTO" as const };
+    const first = repository.createModelPortrait(portraitInput);
+    const second = repository.createModelPortrait({ ...portraitInput, storagePath: "models/p2.png", hash: "portrait-2" });
+    expect(repository.createModelPortrait(portraitInput)).toEqual(first);
+    expect(repository.listModelPortraits(created.id)).toHaveLength(2);
+
+    expect(repository.selectModelPortrait(created.id, first.id)).toBe("selected");
+    expect(repository.listModelPortraits(created.id).find((portrait) => portrait.id === first.id)?.selected).toBe(true);
+    expect(repository.selectModelPortrait(created.id, second.id)).toBe("selected");
+    const afterSwitch = repository.listModelPortraits(created.id);
+    expect(afterSwitch.find((portrait) => portrait.id === second.id)?.selected).toBe(true);
+    expect(afterSwitch.filter((portrait) => portrait.selected)).toHaveLength(1);
+    expect(repository.selectModelPortrait(created.id, "missing-portrait")).toBe("missing");
+
+    // 缩略图的惰性兜底按内容 hash 反查来源文件：模特候选必须查得到，否则库里的模特图缩略图必定 404。
+    expect(repository.findLibrarySourcePath(first.hash)).toBe("models/p1.png");
+    expect(repository.listAllModelPortraits()).toHaveLength(2);
+
+    expect(repository.deleteModelPortrait(first.id)).toBe(true);
+    expect(repository.deleteModel(created.id)).toBe(true);
+    expect(repository.getModel(created.id)).toBeUndefined();
+    expect(repository.listModelPortraits(created.id)).toHaveLength(0);
+    database.close();
+  });
+
+  it("spec_json 的读取投影补齐缺省维度且原始持久值不变", () => {
+    const directory = mkdtempSync(join(tmpdir(), "ecomgen-model-spec-"));
+    const filename = join(directory, "ecomgen.sqlite");
+    try {
+      const database = openDatabase(filename);
+      const repository = new EcomRepository(database);
+      const created = repository.createModel({ name: "小满", spec: makeModelSpec(), notes: "" });
+      // 造一条历史行：删掉两个后加的维度，模拟契约演进前的存量数据。
+      const legacy = { ...makeModelSpec() } as Record<string, unknown>;
+      delete legacy.hairline;
+      delete legacy.facialHair;
+      database.prepare("UPDATE models SET spec_json=? WHERE id=?").run(JSON.stringify(legacy), created.id);
+      database.close();
+
+      // 读取投影补齐默认维度，不在重开 v3 时改写原始记录。
+      const reopened = openDatabase(filename);
+      const migrated = new EcomRepository(reopened).getModel(created.id)!;
+      expect(migrated.spec.hairline).toBe(MODEL_SPEC_DEFAULTS.hairline);
+      expect(migrated.spec.facialHair).toBe(MODEL_SPEC_DEFAULTS.facialHair);
+      expect(migrated.spec.browShape).toBe(legacy.browShape);
+      expect(reopened.prepare("SELECT spec_json FROM models WHERE id=?").get(created.id)).toEqual({ spec_json: JSON.stringify(legacy) });
+      reopened.close();
+
+      // 幂等：再次开库不改变已对齐的行。
+      const again = openDatabase(filename);
+      expect(new EcomRepository(again).getModel(created.id)).toEqual(migrated);
+      again.close();
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+});
+
+/** 覆盖 ModelSpec 全部维度的最小合法组合；用例只改与其断言相关的取值。 */
+function makeModelSpec(): ModelSpec {
+  return {
+    gender: "FEMALE", age: "LATE_20S", heritage: "EAST_ASIAN", stature: "STANDARD_165", build: "BALANCED",
+    faceShape: "OVAL", eyeShape: "ALMOND", eyeColor: "DARK_BROWN", browShape: "STRAIGHT_SOFT", noseShape: "STRAIGHT", lipShape: "NATURAL",
+    hairLength: "SHOULDER", hairstyle: "SOFT_WAVE", hairColor: "INK_BLACK", hairTexture: "NATURAL_VOLUME", hairline: "ROUNDED",
+    complexion: "FAIR_WARM", skinTexture: "NATURAL_PORES", facialHair: "NONE", distinctiveMarks: [],
+    expression: "CALM_DIRECT", gaze: "DIRECT_TO_CAMERA", aura: ["WARM_APPROACHABLE"], makeup: "MINIMAL_DEWY", baseWardrobe: "WHITE_TANK",
+    framing: "THREE_QUARTER", pose: "HANDS_RELAXED", backdrop: "SEAMLESS_GREY", lighting: "SOFTBOX_THREE_POINT", lens: "LENS_50",
+  };
+}
+
+describe("LayerPlan / LayerExport 持久化", () => {
+  it("plan/export 记录 CRUD 往返，status 与产物字段可更新", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const provider = seedProvider(repository);
+    const project = repository.createProject(makeProjectInput(provider, { segmentationModel: { providerId: provider.id, modelId: "fal-ai/sam-3/image" } }));
+    expect(repository.getProject(project.id)?.segmentationModel).toEqual({ providerId: provider.id, modelId: "fal-ai/sam-3/image", protocol: "fal" });
+    expect(repository.updateProject(project.id, { segmentationModel: { providerId: provider.id, modelId: "grounded-sam-2", protocol: "grounded_sam" } })?.segmentationModel).toMatchObject({ protocol: "grounded_sam" });
+
+    const job = repository.createJob({ id: "job-plan-1", projectId: project.id, storyboardItemId: null, type: "LAYER_PLAN", status: "QUEUED", input: { outputId: "out-1" } });
+    const plan = repository.createLayerPlan({ projectId: project.id, outputId: "out-1", jobId: job.id, outputHash: "hash-1", status: "QUEUED", elements: [], error: null });
+    expect(repository.getLayerPlanByOutput("out-1")?.id).toBe(plan.id);
+    expect(repository.getLayerPlanByJobId(job.id)?.outputHash).toBe("hash-1");
+    const succeeded = repository.updateLayerPlan(plan.id, { status: "SUCCEEDED", elements: [{ id: "el-1", name: "瓶子", source: "auto", bbox: { x: 0.1, y: 0.2, width: 0.3, height: 0.4 } }] });
+    expect(succeeded).toMatchObject({ status: "SUCCEEDED", elements: [{ id: "el-1", name: "瓶子", source: "auto" }] });
+
+    const exportJob = repository.createJob({ id: "job-export-1", projectId: project.id, storyboardItemId: null, type: "LAYER_EXPORT", status: "QUEUED", input: { outputId: "out-1" } });
+    const layerExport = repository.createLayerExport({ projectId: project.id, outputId: "out-1", jobId: exportJob.id, planId: plan.id, status: "QUEUED", includeBackground: true, psdStoragePath: null, layerFiles: null, error: null });
+    expect(repository.getLayerExportByJobId(exportJob.id)?.planId).toBe(plan.id);
+    // 画框/提示词直接分层时 planId 为空（无识别方案）
+    const promptExportJob = repository.createJob({ id: "job-export-2", projectId: project.id, storyboardItemId: null, type: "LAYER_EXPORT", status: "QUEUED", input: { outputId: "out-1" } });
+    const promptExport = repository.createLayerExport({ projectId: project.id, outputId: "out-1", jobId: promptExportJob.id, planId: null, status: "QUEUED", includeBackground: false, psdStoragePath: null, layerFiles: null, error: null });
+    expect(repository.getLayerExport(promptExport.id)?.planId).toBeNull();
+    const finished = repository.updateLayerExport(layerExport.id, { status: "SUCCEEDED", psdStoragePath: "layers/x/out.psd", layerFiles: [{ name: "01_瓶子", kind: "element", storagePath: "layers/x/01.png", hash: "abc" }] });
+    expect(finished).toMatchObject({ status: "SUCCEEDED", includeBackground: true, psdStoragePath: "layers/x/out.psd" });
+    expect(finished?.layerFiles).toHaveLength(1);
+    expect(repository.updateLayerExport(layerExport.id, { status: "FAILED", error: { message: "SAM failed" } })?.error).toEqual({ message: "SAM failed" });
+    // 删除 Provider 同步清空 segmentationModel 引用
+    repository.deleteProvider(provider.id);
+    expect(repository.getProject(project.id)?.segmentationModel).toBeNull();
+    database.close();
+  });
+
+  it("恢复中断任务时同步把分层记录推进到终态", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const provider = seedProvider(repository);
+    const project = repository.createProject(makeProjectInput(provider, { segmentationModel: { providerId: provider.id, modelId: "fal-ai/sam-3/image" } }));
+    // 未发出外部请求的 RUNNING 分层任务可安全重跑：记录回到 QUEUED 并清空错误
+    const planJob = repository.createJob({ id: "recover-plan", projectId: project.id, storyboardItemId: null, type: "LAYER_PLAN", status: "QUEUED", input: { outputId: "out-1" } });
+    const plan = repository.createLayerPlan({ projectId: project.id, outputId: "out-1", jobId: planJob.id, outputHash: "hash-1", status: "RUNNING", elements: [], error: { message: "stale" } });
+    // 已发出外部请求的 RUNNING 导出无法确认结果：记录置 FAILED，避免永远停在 RUNNING
+    const exportJob = repository.createJob({ id: "recover-export", projectId: project.id, storyboardItemId: null, type: "LAYER_EXPORT", status: "QUEUED", input: { outputId: "out-1" } });
+    const layerExport = repository.createLayerExport({ projectId: project.id, outputId: "out-1", jobId: exportJob.id, planId: null, status: "RUNNING", includeBackground: true, psdStoragePath: null, layerFiles: null, error: null });
+    database.prepare("UPDATE jobs SET status='RUNNING' WHERE id IN (?, ?)").run(planJob.id, exportJob.id);
+    database.prepare("UPDATE jobs SET provider_task_id=? WHERE id=?").run(EXTERNAL_REQUEST_STARTED, exportJob.id);
+
+    expect(repository.recoverInterruptedJobs().map((job) => job.id)).toEqual([planJob.id]);
+    expect(repository.getLayerPlan(plan.id)).toMatchObject({ status: "QUEUED", error: null });
+    expect(repository.getLayerExport(layerExport.id)).toMatchObject({ status: "UNKNOWN", error: { message: "外部图像请求结果未知，已停止自动重试以避免重复计费" } });
+    // 崩溃发生在 PSD 落盘之后：导出记录已有完成证据，恢复时不得改判 FAILED，也不得重新执行计费请求
+    const lateJob = repository.createJob({ id: "recover-export-2", projectId: project.id, storyboardItemId: null, type: "LAYER_EXPORT", status: "QUEUED", input: { outputId: "out-1" } });
+    const lateExport = repository.createLayerExport({ projectId: project.id, outputId: "out-1", jobId: lateJob.id, planId: null, status: "SUCCEEDED", includeBackground: true, psdStoragePath: "layers/x/late.psd", layerFiles: null, error: null });
+    database.prepare("UPDATE jobs SET status='RUNNING',provider_task_id=? WHERE id=?").run(EXTERNAL_REQUEST_STARTED, lateJob.id);
+    expect(repository.recoverInterruptedJobs()).toEqual([]);
+    expect(repository.getJob(lateJob.id)).toMatchObject({ status: "UNKNOWN", retryable: false, error: { message: "外部图像请求结果未知，已停止自动重试以避免重复计费" } });
+    expect(repository.getLayerExport(lateExport.id)).toMatchObject({ status: "SUCCEEDED", psdStoragePath: "layers/x/late.psd" });
+    database.close();
+  });
+});
+
+describe("花型库 / 规格包持久化", () => {
+  it("花型 CRUD：(sourceJobId, fileHash) 幂等、产物回填后进资产库、删除级联清理规格包", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+
+    // 无产物的花型行对资产库不可见：提取/起稿任务运行期间不产生半成品条目
+    const created = repository.createPattern({ name: "水彩野花", sourceType: "EXTRACTED", sourceJobId: "extract-job-1", sourceAssetHash: "src-hash", parentPatternId: null, storagePath: null, fileHash: null, width: null, height: null, tags: ["野花"] });
+    expect(repository.listLibraryItems({ kind: "PATTERN" }).items).toHaveLength(0);
+
+    // 产物回填后进入资产库（花型工坊来源不归属项目）
+    repository.setPatternArtifact(created.id, { storagePath: "patterns/a/pattern.png", fileHash: "artifact-hash", width: 1024, height: 768 });
+    const library = repository.listLibraryItems({ kind: "PATTERN" }).items;
+    expect(library.map((entry) => entry.id)).toEqual([`pattern:${created.id}`]);
+    expect(library[0]).toMatchObject({ hash: "artifact-hash", source: "GENERATED", projectName: "花型工坊" });
+
+    // 同 (sourceJobId, fileHash) 幂等：Worker 重试复用同一行，不产生重复花型
+    const duplicated = repository.createPattern({ name: "重复行", sourceType: "EXTRACTED", sourceJobId: "extract-job-1", sourceAssetHash: "src-hash", parentPatternId: null, storagePath: "other.png", fileHash: "artifact-hash", width: 1, height: 1, tags: [] });
+    expect(duplicated.id).toBe(created.id);
+    expect(repository.listPatterns()).toHaveLength(1);
+
+    expect(repository.updatePattern(created.id, { name: "改名", tags: ["a", "b"] })).toMatchObject({ name: "改名", tags: ["a", "b"] });
+    expect(repository.updatePattern("missing-pattern", { name: "x" })).toBeUndefined();
+
+    // 规格包：一任务一记录（job_id 反查），文件清单成功后写入；只有 PRINT_FILE 进资产库
+    const pack = repository.createPrintPack({ patternId: created.id, jobId: "pack-job-1", specId: "tshirt-front-12x16", specVersion: "2026.09" });
+    expect(repository.getPrintPackByJobId("pack-job-1")?.id).toBe(pack.id);
+    repository.updatePrintPack(pack.id, {
+      status: "SUCCEEDED",
+      files: [
+        { name: "tshirt-front-12x16.png", kind: "PRINT_FILE", storagePath: "print-packs/x/print.png", hash: "pack-hash" },
+        { name: "manifest.json", kind: "MANIFEST", storagePath: "print-packs/x/manifest.json", hash: "manifest-hash" },
+      ],
+      manifest: { patternHash: "artifact-hash" },
+    });
+    expect(repository.listLibraryItems({ kind: "PRINT_PACK" }).items.map((entry) => entry.id)).toEqual([`pack:${pack.id}:0`]);
+    expect(repository.resolveLibrarySource(`pack:${pack.id}:0`)).toMatchObject({ storagePath: "print-packs/x/print.png", hash: "pack-hash", mimeType: "image/png" });
+    // manifest 是溯源清单而非可预览图
+    expect(repository.resolveLibrarySource(`pack:${pack.id}:1`)).toBeUndefined();
+
+    expect(repository.resolveLibrarySource(`pattern:${created.id}`)).toMatchObject({ storagePath: "patterns/a/pattern.png", hash: "artifact-hash" });
+    expect(repository.findLibrarySourcePath("pack-hash")).toBe("print-packs/x/print.png");
+
+    // 删除花型级联清理规格包，两段库条目同时消失
+    expect(repository.deletePattern(created.id)).toBe(true);
+    expect(repository.getPrintPack(pack.id)).toBeUndefined();
+    expect(repository.getPattern(created.id)).toBeUndefined();
+    expect(repository.listLibraryItems({ kind: "PATTERN" }).items).toHaveLength(0);
+    expect(repository.listLibraryItems({ kind: "PRINT_PACK" }).items).toHaveLength(0);
+    database.close();
+  });
+
+  it("验缝判定独立于图稿内容：新花型从 NONE 起步，重算覆盖判定并记录算法版本", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const pattern = repository.createPattern({ name: "满印花型", sourceType: "GENERATED", sourceJobId: "forge-1", sourceAssetHash: null, parentPatternId: null, storagePath: "patterns/t/pattern.png", fileHash: "tile-hash", width: 600, height: 600, tags: [] });
+
+    // 可平铺是"已验证的事实"，不能在入库时就假定成立
+    expect(pattern).toMatchObject({ tileable: "NONE", tileableScore: null, tileableCheckedWith: null });
+
+    expect(repository.setPatternTileable(pattern.id, { status: "VERIFIED", score: 0.98, algorithmVersion: "2026.09.1" }))
+      .toMatchObject({ tileable: "VERIFIED", tileableScore: 0.98, tileableCheckedWith: "2026.09.1" });
+    expect(repository.getPattern(pattern.id)).toMatchObject({ tileable: "VERIFIED", tileableScore: 0.98 });
+
+    // 算法版本升级后重算：判定被覆盖，且旧版本号不再残留
+    expect(repository.setPatternTileable(pattern.id, { status: "FAILED", score: 0.31, algorithmVersion: "2027.01" }))
+      .toMatchObject({ tileable: "FAILED", tileableScore: 0.31, tileableCheckedWith: "2027.01" });
+    expect(repository.setPatternTileable("missing-pattern", { status: "VERIFIED", score: 1, algorithmVersion: "2027.01" })).toBeUndefined();
+    database.close();
+  });
+
+  it("Listing 文案结果按 jobId 存储且同 job 覆盖，独立于项目域 copywriting_results", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const pattern = repository.createPattern({ name: "上传花型", sourceType: "UPLOADED", sourceJobId: null, sourceAssetHash: null, parentPatternId: null, storagePath: "patterns/b/pattern.png", fileHash: "upload-hash", width: 100, height: 100, tags: [] });
+    // job_id 外键到 jobs：Listing 是 COPYWRITE 的全局扩展，结果随任务生命周期级联清理
+    const job = repository.createJob({ id: "listing-job-1", projectId: null, storyboardItemId: null, type: "COPYWRITE", status: "QUEUED", input: {} });
+
+    repository.savePatternListingResult({ jobId: job.id, patternId: pattern.id, platform: "ETSY", copy: { platform: "ETSY", title: "Cozy Cat Tee", tags: ["cat"], description: "d", bullets: [] } });
+    expect(repository.getPatternListingResult(job.id)).toMatchObject({ patternId: pattern.id, platform: "ETSY", copy: { title: "Cozy Cat Tee" } });
+
+    // 同一任务的重复保存覆盖旧结果（重试成功后以最后一次校验通过的文案为准）
+    repository.savePatternListingResult({ jobId: job.id, patternId: pattern.id, platform: "AMAZON", copy: { platform: "AMAZON", title: "Cat Tee", tags: [], description: "d2", bullets: ["b"] } });
+    expect(repository.getPatternListingResult(job.id)?.platform).toBe("AMAZON");
+    expect(repository.getPatternListingResult("missing-job")).toBeUndefined();
+    database.close();
+  });
+
+  it("恢复中断任务时把 RUNNING 规格包同步回 QUEUED，前端不会停在假运行态", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const pattern = repository.createPattern({ name: "马克杯花型", sourceType: "GENERATED", sourceJobId: "forge-job-1", sourceAssetHash: null, parentPatternId: null, storagePath: "patterns/c/pattern.png", fileHash: "forge-hash", width: 100, height: 100, tags: [] });
+    const job = repository.createJob({ id: "recover-pack-job", projectId: null, storyboardItemId: null, type: "PRINT_PACK", status: "QUEUED", input: {} });
+    const pack = repository.createPrintPack({ patternId: pattern.id, jobId: job.id, specId: "mug-11oz-wrap", specVersion: "2026.09", status: "RUNNING" });
+    database.prepare("UPDATE print_packs SET error_json=? WHERE id=?").run(JSON.stringify({ message: "stale" }), pack.id);
+    database.prepare("UPDATE jobs SET status='RUNNING' WHERE id=?").run(job.id);
+
+    expect(repository.recoverInterruptedJobs().map((entry) => entry.id)).toEqual([job.id]);
+    expect(repository.getPrintPack(pack.id)).toMatchObject({ status: "QUEUED", error: null });
+    database.close();
+  });
+
+  it("成包流水线按指纹只复用进行中的记录，终态后新建；删花型保留流水线历史但断开引用", () => {
+    const database = openDatabase(":memory:");
+    const repository = new EcomRepository(database);
+    const pattern = repository.createPattern({ name: "流水线花型", sourceType: "GENERATED", sourceJobId: "forge-1", sourceAssetHash: null, parentPatternId: null, storagePath: "patterns/p/pattern.png", fileHash: "pipe-hash", width: 600, height: 600, tags: [] });
+    const pipeline = repository.createPatternPipeline({
+      patternId: pattern.id,
+      specId: "tshirt-front-12x16",
+      specVersion: "2026.09",
+      layout: "TILE",
+      repeatLayout: "STRAIGHT",
+      listingPlatform: "ETSY",
+      listingProviderId: "provider-1",
+      listingModelId: "vision-1",
+      listingHints: { sellingPoints: "棉感", bannedWords: null },
+      requestFingerprint: "pipe-fingerprint",
+      steps: [
+        { step: "TILE_CHECK", position: 0 },
+        { step: "PRINT_PACK", position: 1 },
+        { step: "LISTING", position: 2 },
+      ],
+    });
+    expect(pipeline).toMatchObject({ status: "QUEUED", blockReason: null, patternId: pattern.id, layout: "TILE" });
+    expect(pipeline.steps.map((entry) => entry.step)).toEqual(["TILE_CHECK", "PRINT_PACK", "LISTING"]);
+    expect(pipeline.steps.every((entry) => entry.status === "PENDING" && entry.jobId === null)).toBe(true);
+
+    // 进行中的同参数流水线可复用；一旦终态就不再复用，用户再点一次是明确的"再出一套"。
+    expect(repository.findReusablePatternPipeline("pipe-fingerprint")?.id).toBe(pipeline.id);
+    repository.updatePatternPipeline(pipeline.id, { status: "SUCCEEDED" });
+    expect(repository.findReusablePatternPipeline("pipe-fingerprint")).toBeUndefined();
+
+    const tileStep = pipeline.steps[0]!;
+    repository.updatePatternPipelineStep(tileStep.id, { status: "SUCCEEDED", jobId: "tile-job-1", detail: { tileable: "FAILED", tileableScore: 0.2 } });
+    expect(repository.getPatternPipelineStepByJobId("tile-job-1")).toMatchObject({ id: tileStep.id, status: "SUCCEEDED", detail: { tileable: "FAILED" } });
+    expect(repository.getPatternPipeline(pipeline.id)?.steps[0]).toMatchObject({ detail: { tileable: "FAILED" } });
+
+    // 删花型：ON DELETE SET NULL 保留流水线审计历史（任务与判定结果仍可追溯），只断开引用。
+    expect(repository.deletePattern(pattern.id)).toBe(true);
+    const orphan = repository.getPatternPipeline(pipeline.id);
+    expect(orphan).toMatchObject({ patternId: null });
+    expect(orphan?.steps).toHaveLength(3);
+    database.close();
+  });
+});

@@ -1,0 +1,46 @@
+import { createServer } from 'node:http';
+
+/** 只供测试：本机假 Provider，不代理请求，不访问网络上游。 */
+export async function startMockProvider(image, options = {}) {
+  const state = { completions: 0, images: 0, segments: 0, failImage: false, idempotencyKeys: [] };
+  const server = createServer(async (request, response) => {
+    try {
+      const chunks = [];
+      let size = 0;
+      for await (const chunk of request) {
+        size += chunk.length;
+        if (size > 20 * 1024 * 1024) { response.writeHead(413).end(); return; }
+        chunks.push(chunk);
+      }
+      const path = new URL(request.url, 'http://localhost').pathname;
+      if (path.endsWith('/chat/completions')) {
+        state.completions++;
+        const body = JSON.parse(Buffer.concat(chunks).toString());
+        const suiteRequest = JSON.stringify(body.messages?.[0]).includes('suite-forge') || JSON.stringify(body.messages).includes('forge ONE reusable suite');
+        const plan = { campaignStyleLock: 'Warm ivory ceramic, neutral studio light.', items: [{ assetType: 'hero-image', displayName: '陶瓷杯正面展示', shotRole: 'HERO', templateVariant: null, candidateCount: 1, referencedAssets: ['P1'], mode: 'PIXEL_PROTECTED', promptInstruction: 'Preserve the exact ceramic product from P1 without redesign. A complete front-facing studio product photograph with ivory ceramic and soft neutral lighting. No invented labels, prices or specifications.', factClaims: [], riskFlags: [], sortOrder: 0 }] };
+        if (suiteRequest && !options.suite) { response.writeHead(400).end(); return; }
+        response.writeHead(200, { 'content-type': 'text/event-stream' });
+        const base = { id: 'chatcmpl-local-test', object: 'chat.completion.chunk', created: 1, model: body.model };
+        response.write(`data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta: { role: 'assistant', content: JSON.stringify(suiteRequest ? options.suite : plan) }, finish_reason: null }] })}\n\n`);
+        response.write(`data: ${JSON.stringify({ ...base, choices: [{ index: 0, delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } })}\n\n`);
+        response.end('data: [DONE]\n\n');
+      } else if (path.includes('/images/')) {
+        state.images++;
+        state.idempotencyKeys.push(request.headers['idempotency-key'] ?? null);
+        if (state.failImage) { response.destroy(); return; }
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({ data: [{ b64_json: image.toString('base64') }] }));
+      } else {
+        state.segments++;
+        response.writeHead(200, { 'content-type': 'application/json' });
+        response.end(JSON.stringify({ masks: [{ data: (options.mask ?? image).toString('base64'), mime_type: 'image/png' }] }));
+      }
+    } catch {
+      if (!response.headersSent) response.writeHead(500);
+      response.end();
+    }
+  });
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
+  const address = server.address();
+  return { baseUrl: `http://127.0.0.1:${address.port}/v1`, state, close: () => new Promise((resolve, reject) => { server.close(error => error ? reject(error) : resolve()); server.closeAllConnections(); }) };
+}

@@ -1,0 +1,594 @@
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { StrictMode } from 'react';
+import userEvent from "@testing-library/user-event";
+import { FakeDesktop, PROVIDER_FIXTURE } from "../../test/fake-desktop";
+let desktop: FakeDesktop;
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ASSET_FIXTURE, OUTPUT_FIXTURE, PROJECT_ID } from "../../test/fixtures";
+import { renderWithProviders } from "../../test/render";
+import { EditImageWorkspace, resolveReferenceImageUrl } from "./EditImageWorkspace";
+const alphaValues: number[] = [];
+const fillStyles: string[] = [];
+const strokeStyles: string[] = [];
+const compositeOperations: GlobalCompositeOperation[] = [];
+const renderOperations: string[] = [];
+const tintFillStyles: string[] = [];
+let currentAlpha = 1;
+let currentFillStyle = "";
+let currentStrokeStyle = "";
+let pendingAnimationFrames: Array<{
+    id: number;
+    callback: FrameRequestCallback;
+}> = [];
+let animationFrameId = 0;
+const canvasContext = {
+    get globalAlpha() { return currentAlpha; },
+    set globalAlpha(value: number) { currentAlpha = value; alphaValues.push(value); renderOperations.push(`alpha:${value}`); },
+    get fillStyle() { return currentFillStyle; },
+    set fillStyle(value: string) { currentFillStyle = value; fillStyles.push(value); renderOperations.push(`fill:${value}`); },
+    get strokeStyle() { return currentStrokeStyle; },
+    set strokeStyle(value: string) { currentStrokeStyle = value; strokeStyles.push(value); },
+    set globalCompositeOperation(value: GlobalCompositeOperation) { compositeOperations.push(value); renderOperations.push(`composite:${value}`); },
+    clearRect: vi.fn(),
+    save: vi.fn(),
+    restore: vi.fn(),
+    drawImage: vi.fn(() => { renderOperations.push("drawImage"); }),
+    fillRect: vi.fn(),
+    strokeRect: vi.fn(),
+    setLineDash: vi.fn(),
+    beginPath: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    stroke: vi.fn(),
+    arc: vi.fn(),
+    fill: vi.fn(),
+    fillText: vi.fn(),
+    getImageData: vi.fn(() => ({ data: new Uint8ClampedArray(4) })),
+};
+const offscreenCanvasContext = Object.create(canvasContext) as CanvasRenderingContext2D;
+Object.defineProperties(offscreenCanvasContext, {
+    globalAlpha: { get: () => 1, set: () => { } },
+    fillStyle: { get: () => "", set: (value: string) => { tintFillStyles.push(value); } },
+    strokeStyle: { get: () => "", set: () => { } },
+    globalCompositeOperation: { get: () => "source-over", set: () => { } },
+});
+function renderEditor(project?: {
+    reasoningProviderId: string;
+    reasoningModelId: string;
+    imageProviderId: string;
+    imageModelId: string;
+    imageResolution: "1K" | "2K" | "4K";
+    candidatesPerType: number;
+}, assets = [] as Parameters<typeof EditImageWorkspace>[0]["assets"]) {
+    return renderWithProviders(<EditImageWorkspace projectId={PROJECT_ID} project={project} output={OUTPUT_FIXTURE} outputs={[OUTPUT_FIXTURE]} assets={assets} onSelectOutput={() => { }} onClose={() => { }}/>);
+}
+function initializeCanvas(): void {
+    const image = screen.getByAltText("待编辑图片");
+    Object.defineProperties(image, {
+        naturalWidth: { configurable: true, value: 1000 },
+        naturalHeight: { configurable: true, value: 1000 },
+    });
+    fireEvent.load(image);
+}
+function firePointer(canvas: HTMLCanvasElement, type: "pointerdown" | "pointermove" | "pointerup", pointerId: number, clientX: number, clientY: number): void {
+    const event = new Event(type, { bubbles: true });
+    Object.defineProperties(event, {
+        pointerId: { configurable: true, value: pointerId },
+        clientX: { configurable: true, value: clientX },
+        clientY: { configurable: true, value: clientY },
+    });
+    fireEvent(canvas, event);
+}
+function renderPendingFrame(): void {
+    // 真实的一帧会执行该帧注册的全部回调，因此这里必须整批执行。
+    // 只保留单个槽位时，画布重绘会与同时排队的外部动画（antd 弹层等）争抢槽位，
+    // 重放的是"最后排队的那一个"而非画布回调，表现为随机失败。
+    const callbacks = pendingAnimationFrames;
+    pendingAnimationFrames = [];
+    for (const { callback } of callbacks)
+        callback(0);
+}
+/** 选框拖拽用例的脚本步骤：触发 pointer 事件，或就地断言光标/实时预览。 */
+type DragStep = {
+    fire: "pointerdown" | "pointermove" | "pointerup";
+    x: number;
+    y: number;
+} | {
+    expectCursor: string;
+} | {
+    expectPreview: [
+        number,
+        number,
+        number,
+        number
+    ];
+};
+/** 四类拖拽手势：初始 200×200 选框由用例统一画好，这里只描述其后的操作与预期 bounds。 */
+const dragGestures: Array<{
+    gesture: string;
+    steps: DragStep[];
+    bounds: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+    };
+}> = [
+    {
+        gesture: "移动已框选区域只提交移动后的选择框",
+        steps: [
+            { fire: "pointerdown", x: 150, y: 100 },
+            { fire: "pointermove", x: 350, y: 250 },
+            { fire: "pointerup", x: 350, y: 250 },
+        ],
+        bounds: { x: 300, y: 250, width: 200, height: 200 },
+    },
+    {
+        gesture: "拖动边框移动整个区域并显示移动光标",
+        steps: [
+            { fire: "pointermove", x: 150, y: 100 },
+            { expectCursor: "move" },
+            { fire: "pointerdown", x: 150, y: 100 },
+            { fire: "pointermove", x: 250, y: 150 },
+            { fire: "pointerup", x: 250, y: 150 },
+        ],
+        bounds: { x: 200, y: 150, width: 200, height: 200 },
+    },
+    {
+        gesture: "拖动角点实时调整大小并显示对角缩放光标",
+        steps: [
+            { fire: "pointermove", x: 300, y: 300 },
+            { expectCursor: "nwse-resize" },
+            { fire: "pointerdown", x: 300, y: 300 },
+            { fire: "pointermove", x: 400, y: 350 },
+            { expectPreview: [100, 100, 300, 250] },
+            { fire: "pointerup", x: 400, y: 350 },
+        ],
+        bounds: { x: 100, y: 100, width: 300, height: 250 },
+    },
+    {
+        gesture: "拖动边中点只调整对应方向的尺寸",
+        steps: [
+            { fire: "pointermove", x: 200, y: 100 },
+            { expectCursor: "ns-resize" },
+            { fire: "pointerdown", x: 200, y: 100 },
+            { fire: "pointermove", x: 200, y: 50 },
+            { fire: "pointerup", x: 200, y: 50 },
+        ],
+        bounds: { x: 100, y: 50, width: 200, height: 250 },
+    },
+];
+/** 分层模式用例的公共前置：当前成图既无识别方案、无导出记录，也无导出历史。 */
+function stubEmptyLayerState(): void {
+    [
+        desktop.on("getLayerPlan", () => Promise.reject(Object.assign(new Error("\u8D44\u6E90\u4E0D\u5B58\u5728"), { code: "NOT_FOUND" }))),
+        desktop.on("getLayerExport", () => Promise.reject(Object.assign(new Error("\u8D44\u6E90\u4E0D\u5B58\u5728"), { code: "NOT_FOUND" }))),
+        desktop.on("listLayerExports", () => ({ exports: [] }))
+    ];
+}
+describe("图片编辑画布", () => {
+    beforeEach(() => {
+        desktop = new FakeDesktop().install();
+        desktop.on("listEditReferenceAssets", () => ({ items: [], suggestedSelections: [] }));
+        currentAlpha = 1;
+        alphaValues.length = 0;
+        currentFillStyle = "";
+        fillStyles.length = 0;
+        currentStrokeStyle = "";
+        strokeStyles.length = 0;
+        compositeOperations.length = 0;
+        renderOperations.length = 0;
+        tintFillStyles.length = 0;
+        vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(function getContext(this: HTMLCanvasElement) {
+            return (this.dataset.tool ? canvasContext : offscreenCanvasContext) as unknown as CanvasRenderingContext2D;
+        });
+        vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockReturnValue("data:image/png;base64,mock");
+        pendingAnimationFrames = [];
+        animationFrameId = 0;
+        vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+            const id = ++animationFrameId;
+            pendingAnimationFrames.push({ id, callback });
+            return id;
+        });
+        vi.stubGlobal("cancelAnimationFrame", (id: number) => { pendingAnimationFrames = pendingAnimationFrames.filter((frame) => frame.id !== id); });
+        HTMLCanvasElement.prototype.setPointerCapture = vi.fn();
+        HTMLCanvasElement.prototype.releasePointerCapture = vi.fn();
+        HTMLCanvasElement.prototype.hasPointerCapture = vi.fn(() => true);
+        [
+            desktop.on("createEditSession", (input) => ({ id: "11111111-2222-4333-8444-555555555555", currentOutputId: input.outputId, memorySummary: {}, status: "ACTIVE", projectId: PROJECT_ID, createdAt: OUTPUT_FIXTURE.createdAt, updatedAt: OUTPUT_FIXTURE.createdAt }))
+        ];
+    });
+    afterEach(() => {
+        vi.restoreAllMocks();
+        vi.unstubAllGlobals();
+    });
+    it('提交尚未返回时显示版本占位，提交失败后显示黑色失败缩略图', async () => {
+        let rejectSubmit!: (error: Error) => void;
+        desktop.on('createEditTurn', () => new Promise((_resolve, reject) => { rejectSubmit = reject; }));
+        renderEditor();
+        const input = await screen.findByPlaceholderText(/把选中的菠萝颜色/);
+        await waitFor(() => expect(input).toBeEnabled());
+        fireEvent.change(input, { target: { value: '修改背景' } });
+        fireEvent.click(screen.getByRole('button', { name: '生成计划' }));
+        const versions = screen.getByLabelText('版本历史');
+        expect(within(versions).getByLabelText('正在规划')).toBeInTheDocument();
+        expect(within(versions).queryByRole('button', { name: /正在规划/ })).not.toBeInTheDocument();
+        await waitFor(() => expect(rejectSubmit).toBeDefined());
+        await act(async () => rejectSubmit(new Error('CAPABILITY_UNSUPPORTED')));
+        expect(within(versions).getByLabelText(/生成失败：当前模型不支持此编辑操作/).querySelector('[class*="failedThumbnail"]')).toBeInTheDocument();
+        expect(input).toHaveValue('修改背景');
+    });
+    it('延迟轮次持续显示占位，成功后用真实版本替换且不重复', async () => {
+        const sessionId = '11111111-2222-4333-8444-555555555555';
+        const turnId = '22222222-2222-4333-8444-555555555555';
+        const resultOutput = { ...OUTPUT_FIXTURE, id: '44444444-2222-4333-8444-555555555555', parentOutputId: OUTPUT_FIXTURE.id };
+        let status: 'PLANNING' | 'GENERATING' | 'SUCCEEDED' = 'PLANNING';
+        const turn = () => ({ id: turnId, sessionId, projectId: PROJECT_ID, baseOutputId: OUTPUT_FIXTURE.id, status, message: '修改背景', annotations: { annotations: [] }, referenceAssetIds: [], referenceSelections: [], plan: null, error: null, createdAt: OUTPUT_FIXTURE.createdAt, updatedAt: OUTPUT_FIXTURE.createdAt });
+        desktop.on('createEditTurn', () => ({ turnId, planJobId: '33333333-2222-4333-8444-555555555555', status: 'PLANNING', reused: false }));
+        desktop.on('getEditTurn', turn);
+        const editor = (outputs: typeof OUTPUT_FIXTURE[]) => <EditImageWorkspace projectId={PROJECT_ID} output={OUTPUT_FIXTURE} outputs={outputs} assets={[]} onSelectOutput={() => {}} onClose={() => {}}/>;
+        // 初次读取不返回正在提交的轮次。
+        let initial = true;
+        desktop.on('getEditSession', () => ({ id: sessionId, projectId: PROJECT_ID, currentOutputId: status === 'SUCCEEDED' ? resultOutput.id : OUTPUT_FIXTURE.id, status: 'ACTIVE', memorySummary: {}, turns: initial ? [] : [turn()], versions: status === 'SUCCEEDED' ? [OUTPUT_FIXTURE, resultOutput] : [OUTPUT_FIXTURE], createdAt: OUTPUT_FIXTURE.createdAt, updatedAt: OUTPUT_FIXTURE.createdAt }));
+        const view = renderWithProviders(editor([OUTPUT_FIXTURE]));
+        const input = await screen.findByPlaceholderText(/把选中的菠萝颜色/);
+        await waitFor(() => expect(input).toBeEnabled());
+        initial = false;
+        fireEvent.change(input, { target: { value: '修改背景' } });
+        fireEvent.click(screen.getByRole('button', { name: '生成计划' }));
+        await waitFor(() => expect(vi.mocked(desktop.api.invoke).mock.calls.some(([name]) => name === 'createEditTurn')).toBe(true));
+        expect(within(screen.getByLabelText('版本历史')).getAllByLabelText('正在规划')).toHaveLength(1);
+        status = 'GENERATING';
+        act(() => window.dispatchEvent(new Event('pixelmuse:job-resolution')));
+        await waitFor(() => expect(within(screen.getByLabelText('版本历史')).getByLabelText('正在生成')).toBeInTheDocument());
+        status = 'SUCCEEDED';
+        view.rerender(editor([OUTPUT_FIXTURE, resultOutput]));
+        act(() => window.dispatchEvent(new Event('pixelmuse:job-resolution')));
+        await waitFor(() => expect(within(screen.getByLabelText('版本历史')).queryByLabelText('正在生成')).not.toBeInTheDocument());
+        await waitFor(() => expect(within(screen.getByLabelText('版本历史')).getByRole('img', { name: 'V2' })).toBeInTheDocument());
+    });
+    it.each(['SUCCEEDED', 'FAILED'] as const)('切换基图后重新读取的 %s 终态替代本地加载占位', async terminal => {
+        const sessionId = '11111111-2222-4333-8444-555555555555';
+        const turnId = '22222222-2222-4333-8444-555555555555';
+        const other = { ...OUTPUT_FIXTURE, id: '44444444-2222-4333-8444-555555555555', parentOutputId: OUTPUT_FIXTURE.id };
+        let status: 'PLANNING' | 'SUCCEEDED' | 'FAILED' = 'PLANNING';
+        let submitted = false;
+        const turn = () => ({ id: turnId, sessionId, projectId: PROJECT_ID, baseOutputId: OUTPUT_FIXTURE.id, status, message: '修改背景', annotations: { annotations: [] }, referenceAssetIds: [], referenceSelections: [], plan: null, error: status === 'FAILED' ? { code: 'EDIT_PLAN_INVALID', message: '模型返回的编辑方案不符合要求，请重试。' } : null, createdAt: OUTPUT_FIXTURE.createdAt, updatedAt: OUTPUT_FIXTURE.createdAt });
+        desktop.on('createEditTurn', () => { submitted = true; return { turnId, planJobId: '33333333-2222-4333-8444-555555555555', status: 'PLANNING', reused: false }; });
+        desktop.on('getEditTurn', turn);
+        desktop.on('getEditSession', () => ({ id: sessionId, projectId: PROJECT_ID, currentOutputId: OUTPUT_FIXTURE.id, status: 'ACTIVE', memorySummary: {}, turns: submitted ? [turn()] : [], versions: [OUTPUT_FIXTURE, other], createdAt: OUTPUT_FIXTURE.createdAt, updatedAt: OUTPUT_FIXTURE.createdAt }));
+        const editor = (output: typeof OUTPUT_FIXTURE) => <EditImageWorkspace projectId={PROJECT_ID} output={output} outputs={[OUTPUT_FIXTURE, other]} assets={[]} onSelectOutput={() => {}} onClose={() => {}}/>;
+        const view = renderWithProviders(editor(OUTPUT_FIXTURE));
+        const input = await screen.findByPlaceholderText(/把选中的菠萝颜色/);
+        await waitFor(() => expect(input).toBeEnabled());
+        fireEvent.change(input, { target: { value: '修改背景' } });
+        fireEvent.click(screen.getByRole('button', { name: '生成计划' }));
+        await waitFor(() => expect(submitted).toBe(true));
+        expect(within(screen.getByLabelText('版本历史')).getByLabelText('正在规划')).toBeInTheDocument();
+        view.rerender(editor(other));
+        await waitFor(() => expect(within(screen.getByLabelText('版本历史')).queryByLabelText('正在规划')).not.toBeInTheDocument());
+        status = terminal;
+        view.rerender(editor(OUTPUT_FIXTURE));
+        await waitFor(() => expect(within(screen.getByLabelText('版本历史')).queryByLabelText('正在规划')).not.toBeInTheDocument());
+        if (terminal === 'FAILED') await screen.findByLabelText('生成失败：模型返回的编辑方案不符合要求，请重试。');
+        else expect(within(screen.getByLabelText('版本历史')).getByRole('img', { name: 'V2' })).toBeInTheDocument();
+    });
+    it.each((['SUCCEEDED', 'FAILED', 'AWAITING_CONFIRMATION'] as const).flatMap(status => ([false, true] as const).map(resolveOnOther => ({ status, resolveOnOther }))))('创建回执在切换基图后恢复 $status（回执在 B：$resolveOnOther）', async ({ status: finalStatus, resolveOnOther }) => {
+        const sessionId = '11111111-2222-4333-8444-555555555555';
+        const turnId = '22222222-2222-4333-8444-555555555555';
+        const other = { ...OUTPUT_FIXTURE, id: '44444444-2222-4333-8444-555555555555', parentOutputId: OUTPUT_FIXTURE.id };
+        const resultOutput = { ...OUTPUT_FIXTURE, id: '55555555-2222-4333-8444-555555555555', parentOutputId: OUTPUT_FIXTURE.id };
+        let resolveSubmit!: (value: { turnId: string; planJobId: string; status: 'PLANNING'; reused: boolean }) => void;
+        let created = false;
+        let status: 'PLANNING' | typeof finalStatus = 'PLANNING';
+        const turn = () => ({ id: turnId, sessionId, projectId: PROJECT_ID, baseOutputId: OUTPUT_FIXTURE.id, status, message: '修改背景', annotations: { annotations: [] }, referenceAssetIds: [], referenceSelections: [], plan: status === 'AWAITING_CONFIRMATION' ? { userSummary: '保留商品，只改背景', requiresConfirmation: true } : null, error: status === 'FAILED' ? { code: 'EDIT_PLAN_INVALID', message: '模型返回的编辑方案不符合要求，请重试。' } : null, createdAt: OUTPUT_FIXTURE.createdAt, updatedAt: OUTPUT_FIXTURE.createdAt });
+        desktop.on('createEditTurn', () => new Promise(resolve => { resolveSubmit = resolve; }));
+        desktop.on('getEditTurn', turn);
+        desktop.on('getEditSession', () => ({ id: sessionId, projectId: PROJECT_ID, currentOutputId: OUTPUT_FIXTURE.id, status: 'ACTIVE', memorySummary: {}, turns: created ? [turn()] : [], versions: status === 'SUCCEEDED' ? [OUTPUT_FIXTURE, other, resultOutput] : [OUTPUT_FIXTURE, other], createdAt: OUTPUT_FIXTURE.createdAt, updatedAt: OUTPUT_FIXTURE.createdAt }));
+        const editor = (output: typeof OUTPUT_FIXTURE) => <EditImageWorkspace projectId={PROJECT_ID} output={output} outputs={[OUTPUT_FIXTURE, other, resultOutput]} assets={[]} onSelectOutput={() => {}} onClose={() => {}}/>;
+        const view = renderWithProviders(editor(OUTPUT_FIXTURE));
+        const input = await screen.findByPlaceholderText(/把选中的菠萝颜色/);
+        await waitFor(() => expect(input).toBeEnabled());
+        fireEvent.change(input, { target: { value: '修改背景' } });
+        fireEvent.click(screen.getByRole('button', { name: '生成计划' }));
+        await waitFor(() => expect(resolveSubmit).toBeDefined());
+        view.rerender(editor(other));
+        await waitFor(() => expect(vi.mocked(desktop.api.invoke).mock.calls.filter(([name]) => name === 'getEditSession')).toHaveLength(2));
+        fireEvent.change(input, { target: { value: 'B 的草稿' } });
+        const resolveReceipt = async () => { created = true; await act(async () => resolveSubmit({ turnId, planJobId: '33333333-2222-4333-8444-555555555555', status: 'PLANNING', reused: false })); };
+        if (resolveOnOther) {
+            await resolveReceipt();
+            expect(input).toHaveValue('B 的草稿');
+            expect(within(screen.getByLabelText('版本历史')).queryByLabelText('正在规划')).not.toBeInTheDocument();
+            expect(vi.mocked(desktop.api.invoke).mock.calls.filter(([name]) => name === 'getEditTurn')).toHaveLength(0);
+            // 模拟 B 的会话读取尚未包含刚创建的 A 轮次。
+            created = false;
+        }
+        view.rerender(editor(OUTPUT_FIXTURE));
+        await waitFor(() => expect(vi.mocked(desktop.api.invoke).mock.calls.filter(([name]) => name === 'getEditSession')).toHaveLength(3));
+        fireEvent.change(input, { target: { value: 'A 的新草稿' } });
+        if (!resolveOnOther) await resolveReceipt();
+        else created = true;
+        await waitFor(() => expect(vi.mocked(desktop.api.invoke).mock.calls.some(([name]) => name === 'getEditTurn')).toBe(true));
+        await screen.findByText('修改任务进行中');
+        expect(input).toHaveValue('A 的新草稿');
+        status = finalStatus;
+        act(() => window.dispatchEvent(new Event('pixelmuse:job-resolution')));
+        if (finalStatus === 'SUCCEEDED') await screen.findByText('新版本已生成，可关闭后继续在结果区编辑。');
+        else if (finalStatus === 'FAILED') await screen.findByLabelText('生成失败：模型返回的编辑方案不符合要求，请重试。');
+        else {
+            expect(await screen.findByRole('button', { name: '确认修改' })).toBeDisabled();
+            expect(screen.getByText('要求、选区、参考图或参数已更改，请重新规划修改。')).toBeInTheDocument();
+        }
+        expect(input).toHaveValue('A 的新草稿');
+    });
+    it('StrictMode 重挂 effect 时会话仍能加载，且创建请求只发送一次', async () => {
+        renderWithProviders(<StrictMode><EditImageWorkspace projectId={PROJECT_ID} output={OUTPUT_FIXTURE} outputs={[OUTPUT_FIXTURE]} assets={[]} onSelectOutput={() => {}} onClose={() => {}} /></StrictMode>);
+        expect(await screen.findByText('当前分支记忆')).toBeInTheDocument();
+        await waitFor(() => expect(vi.mocked(desktop.api.invoke).mock.calls.filter(([name]) => name === 'getEditSession')).toHaveLength(1));
+        expect(vi.mocked(desktop.api.invoke).mock.calls.filter(([name]) => name === 'createEditSession')).toHaveLength(1);
+    });
+    it.each(['重新读取', '关闭后重开'] as const)('会话首次读取失败后通过%s恢复原待确认轮次', async entry => {
+        const sessionId = '11111111-2222-4333-8444-555555555555';
+        const turn = { id: '22222222-2222-4333-8444-555555555555', sessionId, projectId: PROJECT_ID, baseOutputId: OUTPUT_FIXTURE.id, status: 'AWAITING_CONFIRMATION', message: '恢复背景修改', annotations: { annotations: [] }, referenceAssetIds: [], referenceSelections: [], plan: { userSummary: '保留商品，只改背景', requiresConfirmation: true }, error: null, createdAt: OUTPUT_FIXTURE.createdAt, updatedAt: OUTPUT_FIXTURE.createdAt };
+        let failed = true;
+        desktop.on('getEditSession', () => {
+            if (failed) throw new Error('会话暂时不可读');
+            return { id: sessionId, projectId: PROJECT_ID, currentOutputId: OUTPUT_FIXTURE.id, status: 'ACTIVE', memorySummary: {}, turns: [turn], versions: [OUTPUT_FIXTURE], createdAt: OUTPUT_FIXTURE.createdAt, updatedAt: OUTPUT_FIXTURE.createdAt };
+        });
+        desktop.on('getEditTurn', () => turn);
+        const editor = (output: typeof OUTPUT_FIXTURE | undefined) => <EditImageWorkspace projectId={PROJECT_ID} output={output} outputs={[OUTPUT_FIXTURE]} assets={[]} onSelectOutput={() => {}} onClose={() => {}}/>;
+        const view = renderWithProviders(editor(OUTPUT_FIXTURE));
+        expect(await screen.findByText(/编辑会话读取失败/)).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: '生成计划' })).toBeDisabled();
+        failed = false;
+        if (entry === '重新读取') await userEvent.setup().click(screen.getByRole('button', { name: '重新读取' }));
+        else { view.rerender(editor(undefined)); view.rerender(editor(OUTPUT_FIXTURE)); }
+        const confirm = await screen.findByRole('button', { name: '确认修改' });
+        await waitFor(() => expect(confirm).toBeEnabled());
+        expect(screen.getByPlaceholderText(/把选中的菠萝颜色/)).toHaveValue('恢复背景修改');
+        expect(screen.queryByText(/编辑会话读取失败/)).not.toBeInTheDocument();
+        fireEvent.change(screen.getByPlaceholderText(/把选中的菠萝颜色/), { target: { value: '保留我的新草稿' } });
+        view.rerender(editor(undefined)); view.rerender(editor(OUTPUT_FIXTURE));
+        expect(screen.getByPlaceholderText(/把选中的菠萝颜色/)).toHaveValue('保留我的新草稿');
+        expect(vi.mocked(desktop.api.invoke).mock.calls.filter(([name]) => name === 'getEditSession')).toHaveLength(2);
+        expect(vi.mocked(desktop.api.invoke).mock.calls.filter(([name]) => ['createEditTurn', 'approveEditTurn'].includes(name))).toHaveLength(0);
+    });
+    it('编辑器内直接结束中断并重读轮次，不填核实表或打开第二个弹窗', async () => {
+        const sessionId = '11111111-2222-4333-8444-555555555555', jobId = '33333333-2222-4333-8444-555555555555';
+        let ended = false;
+        const turn = () => ({ id: '22222222-2222-4333-8444-555555555555', sessionId, projectId: PROJECT_ID, baseOutputId: OUTPUT_FIXTURE.id, status: ended ? 'CANCELLED' : 'UNKNOWN', recoveryJobId: ended ? undefined : jobId, message: '保留我的修改', annotations: { annotations: [] }, referenceAssetIds: [], referenceSelections: [], plan: null, error: null, createdAt: OUTPUT_FIXTURE.createdAt, updatedAt: OUTPUT_FIXTURE.createdAt });
+        desktop.on('getEditSession', () => ({ id: sessionId, projectId: PROJECT_ID, currentOutputId: OUTPUT_FIXTURE.id, status: 'ACTIVE', memorySummary: {}, turns: [turn()], versions: [OUTPUT_FIXTURE], createdAt: OUTPUT_FIXTURE.createdAt, updatedAt: OUTPUT_FIXTURE.createdAt }));
+        desktop.on('getEditTurn', turn);
+        desktop.on('getJobActions', () => ({ cancel: { available: false, reason: null }, retry: { available: !ended, reason: null }, end: { available: !ended, reason: null } }));
+        desktop.on('getJobRecovery', () => ({ canRecover: false, recoveryReason: '没有完整回执' }));
+        desktop.on('resolveJobInterruptions', input => { expect(input).toEqual({ jobId, action: 'END' }); ended = true; return { items: [{ jobId, status: 'ENDED', reason: null }] }; });
+        renderEditor();
+        const button = await screen.findByRole('button', { name: '结束任务' }); await waitFor(() => expect(button).toBeEnabled());
+        await userEvent.setup().click(button);
+        await waitFor(() => expect(screen.queryByText('任务已中断，可以重试或结束。')).not.toBeInTheDocument());
+        expect(screen.getByPlaceholderText(/把选中的菠萝颜色/)).toHaveValue('保留我的修改');
+        expect(screen.getAllByRole('dialog')).toHaveLength(1);
+        expect(screen.queryByRole('textbox', { name: '核实依据' })).not.toBeInTheDocument();
+        expect(vi.mocked(desktop.api.invoke).mock.calls.filter(([name]) => name === 'resolveJobInterruptions')).toHaveLength(1);
+        expect(vi.mocked(desktop.api.invoke).mock.calls.filter(([name]) => ['createEditTurn', 'approveEditTurn'].includes(name))).toHaveLength(0);
+    });
+    it('恢复待确认方案后，缩放保留确认资格，修改要求会使旧方案失效', async () => {
+        const sessionId = '11111111-2222-4333-8444-555555555555';
+        const turn = { id: '22222222-2222-4333-8444-555555555555', sessionId, projectId: PROJECT_ID, baseOutputId: OUTPUT_FIXTURE.id, status: 'AWAITING_CONFIRMATION', message: '背景改为浅灰', annotations: { annotations: [{ id: 'region', type: 'rect', bounds: { x: 100, y: 100, width: 200, height: 200 } }] }, referenceAssetIds: [], referenceSelections: [], plan: { userSummary: '只修改背景', requiresConfirmation: true }, error: null, createdAt: OUTPUT_FIXTURE.createdAt, updatedAt: OUTPUT_FIXTURE.createdAt };
+        desktop.on('getEditSession', () => ({ id: sessionId, projectId: PROJECT_ID, currentOutputId: OUTPUT_FIXTURE.id, status: 'ACTIVE', memorySummary: {}, turns: [turn], versions: [OUTPUT_FIXTURE], createdAt: OUTPUT_FIXTURE.createdAt, updatedAt: OUTPUT_FIXTURE.createdAt }));
+        desktop.on('getEditTurn', () => turn);
+        renderEditor();
+        const confirm = await screen.findByRole('button', { name: '确认修改' });
+        await waitFor(() => expect(confirm).toBeEnabled());
+        expect(screen.getByPlaceholderText(/把选中的菠萝颜色/)).toHaveValue('背景改为浅灰');
+        initializeCanvas();
+        expect(canvasContext.strokeRect).toHaveBeenCalledWith(100, 100, 200, 200);
+        const user = userEvent.setup();
+        await user.click(screen.getByRole('button', { name: '放大' }));
+        expect(confirm).toBeEnabled();
+        await user.type(screen.getByPlaceholderText(/把选中的菠萝颜色/), '，保留阴影');
+        expect(confirm).toBeDisabled();
+        expect(screen.getByText('要求、选区、参考图或参数已更改，请重新规划修改。')).toBeInTheDocument();
+        expect(vi.mocked(desktop.api.invoke).mock.calls.filter(([name]) => name === 'approveEditTurn')).toHaveLength(0);
+    });
+    it("参考图片仅接受受管协议", () => { expect(resolveReferenceImageUrl("ecomgen-resource://ASSET/reference")).toBe("ecomgen-resource://ASSET/reference"); expect(() => resolveReferenceImageUrl("https://provider.invalid/image")).toThrow(); });
+    it.each(dragGestures)("拖动选框：$gesture", async ({ steps, bounds }) => {
+        const user = userEvent.setup();
+        let submittedAnnotations: unknown;
+        [
+            desktop.on("createEditTurn", async (input) => {
+                submittedAnnotations = JSON.parse(String(input.annotations));
+                return { turnId: "22222222-2222-4333-8444-555555555555", planJobId: "33333333-2222-4333-8444-555555555555", status: "PLANNING", reused: false };
+            })
+        ];
+        renderEditor();
+        const canvas = document.querySelector<HTMLCanvasElement>("canvas[data-tool='rect']")!;
+        vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({ left: 0, top: 0, width: 1000, height: 1000 } as DOMRect);
+        initializeCanvas();
+        expect(canvas.width).toBe(1000);
+        // 先画定 200×200 的初始选框
+        firePointer(canvas, "pointerdown", 1, 100, 100);
+        expect(canvas.setPointerCapture).toHaveBeenCalledWith(1);
+        firePointer(canvas, "pointermove", 1, 300, 300);
+        firePointer(canvas, "pointerup", 1, 300, 300);
+        for (const step of steps) {
+            if ("expectCursor" in step) {
+                expect(canvas.style.cursor).toBe(step.expectCursor);
+                continue;
+            }
+            if ("expectPreview" in step) {
+                canvasContext.strokeRect.mockClear();
+                renderPendingFrame();
+                expect(canvasContext.strokeRect).toHaveBeenCalledWith(...step.expectPreview);
+                continue;
+            }
+            firePointer(canvas, step.fire, 2, step.x, step.y);
+        }
+        await waitFor(() => expect(screen.getByPlaceholderText(/把选中的菠萝颜色/)).toBeEnabled());
+        await user.type(screen.getByPlaceholderText(/把选中的菠萝颜色/), "提交框选调整");
+        await user.click(screen.getByRole("button", { name: "生成计划" }));
+        expect(submittedAnnotations).toMatchObject({
+            annotations: [{ type: "rect", bounds }],
+        });
+    });
+    it("默认收起本次生成设置，展开后提交自定义模型、分辨率和出图数", async () => {
+        const user = userEvent.setup();
+        let submittedAnnotations: Record<string, unknown> | undefined;
+        [
+            desktop.on("listProviders", () => ({ items: [
+                    { ...PROVIDER_FIXTURE, id: "7d0b0d1e-4b1c-4c2d-9a3e-2f5b6c7d8e9a", name: "推理 Provider", models: [{ id: "reasoning-model-2", supportsVision: true, supportsThinking: true, supportsTools: true, supportsStructuredOutput: true, imageApiKind: null }] },
+                    { ...PROVIDER_FIXTURE, id: "7d0b0d1e-4b1c-4c2d-9a3e-2f5b6c7d8e9b", name: "生图 Provider", models: [{ id: "image-model-2", supportsVision: false, supportsThinking: false, supportsTools: false, supportsStructuredOutput: false, imageApiKind: "openai_images" }] },
+                ], nextCursor: null })),
+            desktop.on("createEditTurn", async (input) => {
+                submittedAnnotations = JSON.parse(String(input.annotations)) as Record<string, unknown>;
+                return { turnId: "22222222-2222-4333-8444-555555555555", planJobId: "33333333-2222-4333-8444-555555555555", status: "PLANNING", reused: false };
+            })
+        ];
+        renderEditor({ reasoningProviderId: "reasoning-1", reasoningModelId: "reasoning-model-1", imageProviderId: "image-1", imageModelId: "image-model-1", imageResolution: "1K", candidatesPerType: 1 });
+        expect(screen.getByRole("button", { name: /本次生成设置/ })).toHaveAttribute("aria-expanded", "false");
+        expect(screen.queryByLabelText("推理模型")).not.toBeInTheDocument();
+        await user.click(screen.getByRole("button", { name: /本次生成设置/ }));
+        expect(screen.getByLabelText("推理模型")).toBeInTheDocument();
+        await user.selectOptions(screen.getByLabelText("推理模型"), "7d0b0d1e-4b1c-4c2d-9a3e-2f5b6c7d8e9a::reasoning-model-2");
+        await user.selectOptions(screen.getByLabelText("生图模型"), "7d0b0d1e-4b1c-4c2d-9a3e-2f5b6c7d8e9b::image-model-2");
+        await user.selectOptions(screen.getByLabelText("分辨率"), "2K");
+        fireEvent.change(screen.getByLabelText("出图数"), { target: { value: "3" } });
+        await user.type(screen.getByPlaceholderText(/把选中的菠萝颜色/), "使用本次配置");
+        await user.click(screen.getByRole("button", { name: "生成计划" }));
+        expect(submittedAnnotations?.generationConfig).toEqual({
+            reasoningProviderId: "7d0b0d1e-4b1c-4c2d-9a3e-2f5b6c7d8e9a",
+            reasoningModelId: "reasoning-model-2",
+            imageProviderId: "7d0b0d1e-4b1c-4c2d-9a3e-2f5b6c7d8e9b",
+            imageModelId: "image-model-2",
+            imageResolution: "2K",
+            candidateCount: 3,
+        });
+    });
+    it("始终提供参考素材入口并提交用途明确的选择快照", async () => {
+        const user = userEvent.setup();
+        let submittedSelections: unknown;
+        [
+            desktop.on("listEditReferenceAssets", () => ({ items: [{ id: "aaaaaaaa-1111-4222-8333-444444444444", source: "PROJECT", purpose: "PRODUCT_APPEARANCE", role: "PRODUCT_TRUTH", originalName: "phone-front.png", mimeType: "image/png", hash: "hash", createdAt: "2026-08-01T00:00:00.000Z", expiresAt: null, url: "ecomgen-resource://ASSET/aaaaaaaa-1111-4222-8333-444444444444" }], suggestedSelections: [] })),
+            desktop.on("createEditTurn", async (input) => { submittedSelections = JSON.parse(String(input.referenceSelections)); return { turnId: "22222222-2222-4333-8444-555555555555", planJobId: "33333333-2222-4333-8444-555555555555", status: "PLANNING", reused: false }; })
+        ];
+        renderEditor();
+        await user.click(screen.getByRole("button", { name: "选择" }));
+        await user.click(await screen.findByRole("button", { name: /phone-front\.png/ }));
+        await user.type(screen.getByPlaceholderText(/把选中的菠萝颜色/), "替换商品");
+        await user.click(screen.getByRole("button", { name: "生成计划" }));
+        expect(submittedSelections).toEqual([{ id: "aaaaaaaa-1111-4222-8333-444444444444", source: "PROJECT", purpose: "PRODUCT_APPEARANCE", order: 0 }]);
+    });
+    it("参考素材接口失败时仍显示项目详情中的素材", async () => {
+        const user = userEvent.setup();
+        [
+            desktop.on("listEditReferenceAssets", () => Promise.reject(Object.assign(new Error("\u8D44\u6E90\u4E0D\u5B58\u5728"), { code: "NOT_FOUND" })))
+        ];
+        renderEditor(undefined, [{ ...ASSET_FIXTURE, url: `ecomgen-resource://ASSET/${ASSET_FIXTURE.id}` }]);
+        await user.click(screen.getByRole("button", { name: "选择" }));
+        expect(await screen.findByText("product.png")).toBeInTheDocument();
+    });
+    it("从未选择成图切换到编辑状态时不会清空项目素材", async () => {
+        const user = userEvent.setup();
+        const assets = [{ ...ASSET_FIXTURE, url: `ecomgen-resource://ASSET/${ASSET_FIXTURE.id}` }];
+        [
+            desktop.on("listEditReferenceAssets", () => Promise.reject(Object.assign(new Error("\u8D44\u6E90\u4E0D\u5B58\u5728"), { code: "NOT_FOUND" })))
+        ];
+        const view = renderWithProviders(<EditImageWorkspace projectId={PROJECT_ID} output={undefined} outputs={[OUTPUT_FIXTURE]} assets={assets} onSelectOutput={() => { }} onClose={() => { }}/>);
+        view.rerender(<EditImageWorkspace projectId={PROJECT_ID} output={OUTPUT_FIXTURE} outputs={[OUTPUT_FIXTURE]} assets={assets} onSelectOutput={() => { }} onClose={() => { }}/>);
+        await user.click(await screen.findByRole("button", { name: "选择" }));
+        expect(await screen.findByText("product.png")).toBeInTheDocument();
+    });
+    it("拖入参考图片时显示接收状态", async () => {
+        const user = userEvent.setup();
+        renderEditor();
+        await user.click(screen.getByRole("button", { name: "选择" }));
+        const dropZone = await screen.findByTestId("reference-drop-zone");
+        fireEvent.dragEnter(dropZone, { dataTransfer: { files: [] } });
+        expect(dropZone.className).toContain("referencePopoverDragActive");
+        fireEvent.dragLeave(dropZone, { relatedTarget: null });
+        expect(dropZone.className).not.toContain("referencePopoverDragActive");
+    });
+    it("以不同的高可见度颜色渲染可编辑与保护涂抹", async () => {
+        const user = userEvent.setup();
+        renderEditor();
+        initializeCanvas();
+        await user.click(screen.getByRole("button", { name: "涂抹可编辑区域" }));
+        expect(alphaValues).toContain(0.72);
+        expect(tintFillStyles).toContain("#006dff");
+        expect(compositeOperations).not.toContain("destination-in");
+        await user.click(screen.getByRole("button", { name: "保护区域" }));
+        expect(alphaValues).toContain(0.64);
+        expect(tintFillStyles).toContain("#f07800");
+    });
+    it("即使之前选过橙色标注，编辑笔刷光标仍使用编辑蓝", async () => {
+        const user = userEvent.setup();
+        renderEditor();
+        initializeCanvas();
+        await user.click(screen.getByRole("button", { name: "箭头标注" }));
+        await user.click(screen.getByRole("button", { name: "使用 #ffbf2f 标注" }));
+        await user.click(screen.getByRole("button", { name: "涂抹可编辑区域" }));
+        strokeStyles.length = 0;
+        const canvas = document.querySelector<HTMLCanvasElement>("canvas[data-tool='brush']")!;
+        vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({ left: 0, top: 0, width: 1000, height: 1000 } as DOMRect);
+        firePointer(canvas, "pointermove", 1, 120, 120);
+        renderPendingFrame();
+        expect(strokeStyles).toContain("#006dff");
+        expect(strokeStyles).not.toContain("#ffbf2f");
+    });
+    it("分层模式下只保留平移与画框工具，隐藏编辑工具", async () => {
+        const user = userEvent.setup();
+        stubEmptyLayerState();
+        renderEditor();
+        await user.click(screen.getByRole("button", { name: "AI 分层导出" }));
+        expect(await screen.findByRole("button", { name: "移动画布" })).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "拖拽画框添加元素" })).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "涂抹可编辑区域" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "保护区域" })).not.toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "文字标注" })).not.toBeInTheDocument();
+    });
+    it("分层模式下空格在输入框中不触发平移，在画布上仍可临时平移", async () => {
+        const user = userEvent.setup();
+        stubEmptyLayerState();
+        renderEditor();
+        await user.click(screen.getByRole("button", { name: "AI 分层导出" }));
+        const prompt = await screen.findByLabelText("分层提示词");
+        const inputSpace = new KeyboardEvent("keydown", { code: "Space", bubbles: true, cancelable: true });
+        prompt.dispatchEvent(inputSpace);
+        expect(inputSpace.defaultPrevented).toBe(false);
+        const canvasSpace = new KeyboardEvent("keydown", { code: "Space", bubbles: true, cancelable: true });
+        document.body.dispatchEvent(canvasSpace);
+        expect(canvasSpace.defaultPrevented).toBe(true);
+    });
+    it("分层模式下不再绘制编辑与保护遮罩", async () => {
+        const user = userEvent.setup();
+        stubEmptyLayerState();
+        renderEditor();
+        initializeCanvas();
+        renderPendingFrame();
+        tintFillStyles.length = 0;
+        await user.click(screen.getByRole("button", { name: "AI 分层导出" }));
+        expect(tintFillStyles).not.toContain("#006dff");
+        expect(tintFillStyles).not.toContain("#f07800");
+    });
+    it("快速框选提交后触发的残留渲染帧不会抹掉刚画上的选框", async () => {
+        const user = userEvent.setup();
+        stubEmptyLayerState();
+        renderEditor();
+        initializeCanvas();
+        await user.click(screen.getByRole("button", { name: "AI 分层导出" }));
+        const canvas = document.querySelector<HTMLCanvasElement>("canvas[data-tool='layerbox']")!;
+        vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({ left: 0, top: 0, width: 1000, height: 1000 } as DOMRect);
+        const committedBox = (call: readonly unknown[]) => call[0] === 100 && call[1] === 100 && call[2] === 200 && call[3] === 200;
+        const boxStrokes = () => canvasContext.strokeRect.mock.calls.filter(committedBox).length;
+        // 快速框选：pointerdown 调度的延迟渲染帧尚未触发，pointerup 已完成提交（无中间 move 事件）
+        firePointer(canvas, "pointerdown", 1, 100, 100);
+        firePointer(canvas, "pointerup", 1, 300, 300);
+        await screen.findByDisplayValue("自定义元素 1");
+        const strokesAfterCommit = boxStrokes();
+        expect(strokesAfterCommit).toBeGreaterThan(0);
+        // 残留帧此刻才执行：必须按提交后的最新状态重放，选框不得消失
+        renderPendingFrame();
+        expect(boxStrokes()).toBe(strokesAfterCommit + 1);
+    });
+});

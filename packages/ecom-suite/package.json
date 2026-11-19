@@ -1,0 +1,31 @@
+{
+  "name": "@ecomgen/ecom-suite",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsx scripts/generate-builtin-suites-db.ts && tsc -p tsconfig.json",
+    "gen:suites": "tsx scripts/generate-builtin-suites-db.ts",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.0",
+    "@ecomgen/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13"
+  },
+  "files": [
+    "dist",
+    "LICENSE*",
+    "NOTICE*",
+    "UPSTREAM*"
+  ]
+}

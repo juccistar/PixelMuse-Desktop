@@ -1,0 +1,264 @@
+[
+  {
+    "confirmed": [
+      {
+        "priority": "P1",
+        "file": "E:/EcomGen/desktop/packages/backend/src/commands/patternPipelines.ts",
+        "line": 25,
+        "summary": "Different pattern-forge source jobs reuse one pipeline, leaving the second source unbound.",
+        "verdict": "CONFIRMED",
+        "reproduction": {
+          "method": "Invoked the real createPatternForgeJob command twice using different themes, identical pipeline answers, and no idempotencyKey, with the scheduler stopped.",
+          "differentSourceJobs": true,
+          "pipelineCount": 1,
+          "firstSourceBound": true,
+          "secondSourceBound": false
+        },
+        "evidence": [
+          "E:/EcomGen/desktop/packages/backend/src/commands/patterns.ts:163 includes theme in the source-job fingerprint, so the requests create distinct jobs. Line 169 supplies null patternId and patternHash for both pipelines.",
+          "E:/EcomGen/desktop/packages/backend/src/commands/patternPipelines.ts:25 omits sourceJobId from the fingerprint. Lines 26–28 return the reusable pipeline before line 47 can bind the second source.",
+          "E:/EcomGen/desktop/packages/core/src/repositories/patternPipelineRepository.ts:87 reuses matching QUEUED, RUNNING, and AWAITING_INPUT pipelines without checking source identity.",
+          "E:/EcomGen/desktop/packages/backend/src/execution/index.ts:96 returns without pipeline progression when the completed source has no associated step."
+        ],
+        "refutation_checks": [
+          "Source-job deduplication does not protect different themes.",
+          "The unique job-to-step association does not help because the second binding is never attempted.",
+          "The real command dispatcher and pipeline-answer validation accepted both requests."
+        ],
+        "original_source_and_invariant": [
+          "The defect is inherited from E:/EcomGen/legacy/apps/api/src/routes/patternPipelines.ts:49 and E:/EcomGen/legacy/apps/api/src/routes/patterns.ts:222.",
+          "E:/EcomGen/desktop/migration-discovery/map-1.json:288 explicitly identifies this collision and requires source execution identity in pipeline deduplication."
+        ]
+      },
+      {
+        "priority": "P1",
+        "file": "E:/EcomGen/desktop/packages/backend/src/execution/job-patterns.ts",
+        "line": 195,
+        "summary": "Retrying failed transparency validation marks the unchanged invalid artwork successful.",
+        "verdict": "CONFIRMED",
+        "reproduction": {
+          "method": "Invoked actual forge and variant commands, returned a synthetic opaque 8×8 PNG through intercepted provider requests, then retried through PersistentScheduler.retry.",
+          "PATTERN_FORGE": {
+            "firstStatus": "FAILED",
+            "failure": "Actual background validator rejected the opaque image.",
+            "retryable": true,
+            "receiptState": "COMPLETED",
+            "receiptLocalState": "COMMITTED",
+            "retryStatus": "SUCCEEDED",
+            "totalImageRequests": 1,
+            "retainedCandidates": 1
+          },
+          "PATTERN_VARIANT": {
+            "firstStatus": "FAILED",
+            "failure": "Actual background validator rejected the opaque image.",
+            "retryable": true,
+            "receiptState": "COMPLETED",
+            "receiptLocalState": "COMMITTED",
+            "retryStatus": "SUCCEEDED",
+            "totalImageRequests": 1,
+            "retainedCandidates": 1
+          }
+        },
+        "evidence": [
+          "E:/EcomGen/desktop/packages/backend/src/execution/job-patterns.ts:203 persists and commits the candidate before transparency validation at line 206.",
+          "Line 195 checks the live repository and skips an existing forge candidate without validating its artwork. The variant branch repeats this at lines 286 and 303–306.",
+          "E:/EcomGen/desktop/packages/backend/src/runtime/scheduler.ts:143 marks these known failures retryable.",
+          "E:/EcomGen/desktop/packages/backend/src/execution/index.ts:130 permits retryable FAILED jobs, and line 131 permits completed request receipts."
+        ],
+        "refutation_checks": [
+          "UNKNOWN-request protection does not apply: the response and receipt completed successfully before local validation failed.",
+          "Frozen inputs do not prevent the bypass: the candidate-existence check deliberately accesses ctx.runtime.repository.",
+          "The actual scheduler accepted both retries and settled both jobs as SUCCEEDED."
+        ],
+        "original_source_and_invariant": [
+          "E:/EcomGen/legacy/apps/worker/src/job-patterns.ts also stores candidates before transparency validation.",
+          "E:/EcomGen/desktop/migration-discovery/map-2.json:187 explicitly prohibits treating candidate existence as grounds to bypass failed transparency validation; line 197 requires retry coverage.",
+          "E:/EcomGen/desktop/migration-discovery/map-2.json:171 requires failed transparency validation to prevent successful pipeline continuation."
+        ]
+      },
+      {
+        "priority": "P2",
+        "file": "E:/EcomGen/desktop/packages/backend/src/execution/job-export.ts",
+        "line": 33,
+        "summary": "Export manifests assign the latest storyboard prompt to earlier outputs.",
+        "verdict": "CONFIRMED",
+        "reproduction": {
+          "method": "Used actual createGenerationJobs commands for initial and revised generation, followed by createExportJob. Executed through the real scheduler and extracted manifest.json from the resulting ZIP.",
+          "actualGenerationPrompts": [
+            "ORIGINAL RED PROMPT",
+            "LATEST BLUE PROMPT"
+          ],
+          "exportedEntries": [
+            {
+              "output": "first",
+              "revision": null,
+              "prompt": "LATEST BLUE PROMPT"
+            },
+            {
+              "output": "second",
+              "revision": "make it blue",
+              "prompt": "LATEST BLUE PROMPT"
+            }
+          ]
+        },
+        "evidence": [
+          "E:/EcomGen/desktop/packages/backend/src/execution/job-generation.ts:58–60 computes each request prompt and overwrites the shared storyboard compiledPrompt.",
+          "Line 82 records generation parameters and revision without the final prompt.",
+          "E:/EcomGen/desktop/packages/backend/src/execution/job-export.ts:33 reads the shared storyboard compiledPrompt for each output.",
+          "E:/EcomGen/desktop/packages/backend/src/execution/snapshot.ts:38 freezes storyboard items at export submission, preserving the latest shared prompt rather than recovering each output's original prompt."
+        ],
+        "refutation_checks": [
+          "Generated-item content-edit restrictions do not prohibit prompt revisions through createGenerationJobs; both real generation commands succeeded.",
+          "Generation fingerprints correctly distinguish the freeform revision, but that does not preserve the earlier prompt on its output.",
+          "Export snapshot freezing prevents later drift during execution but cannot correct provenance already associated with the wrong output."
+        ],
+        "original_source_and_invariant": [
+          "The same export behavior exists in E:/EcomGen/legacy/apps/worker/src/job-export.ts:32.",
+          "E:/EcomGen/desktop/migration-discovery/map-2.json:404 explicitly identifies this inherited defect and requires immutable per-output prompt and attachment evidence for export.",
+          "E:/EcomGen/desktop/migration-discovery/ownership-plan.md:118 also requires each Output to retain its final prompt and actual generation inputs."
+        ]
+      }
+    ],
+    "rejected_findings": [],
+    "rejected_evidence": [
+      {
+        "claim": "map-2.json:288 explicitly requires source execution identity.",
+        "reason": "The cited file and line are incorrect. The matching requirement is E:/EcomGen/desktop/migration-discovery/map-1.json:288."
+      },
+      {
+        "claim": "map-4.json:187 and :197 require transparency failures to survive retries.",
+        "reason": "The cited file is incorrect. The matching requirements are E:/EcomGen/desktop/migration-discovery/map-2.json:187 and :197."
+      },
+      {
+        "claim": "map-4.json:404 requires immutable per-output prompt provenance.",
+        "reason": "The cited file is incorrect. The matching requirement is E:/EcomGen/desktop/migration-discovery/map-2.json:404."
+      }
+    ],
+    "unverified_concerns": [],
+    "verification": {
+      "runtime": "Node v22.23.4 using current TypeScript source, actual command handlers, in-memory SQLite, persistent scheduler, request ledger, image processing, and ZIP generation.",
+      "boundaries": [
+        "No production repository files were edited.",
+        "Only synthetic images, synthetic credentials, isolated temporary storage, and intercepted network responses were used.",
+        "No real provider requests, user databases, user assets, old environment files, or real credentials were accessed.",
+        "No excluded UI revision/history or guard-fix findings are included."
+      ],
+      "limitations": [
+        "The pipeline collision was reproduced through command creation and persisted associations; two complete pipelines through Listing were not executed.",
+        "Transparency retries were reproduced for both forge and variant. Subsequent pipeline advancement follows the inspected success-settlement path and was not separately executed.",
+        "The older-versus-revised output export case was reproduced. The additional edited-output prompt mismatch was inspected in source but not separately reproduced.",
+        "These were isolated backend reproductions, not Electron UI tests."
+      ],
+      "reproduction_files": [
+        "C:/Users/Administrator/AppData/Local/Temp/ecomgen-parity-verify-20261106.mts",
+        "C:/Users/Administrator/AppData/Local/Temp/ecomgen-parity-verify-20261106-tsconfig.json"
+      ]
+    }
+  },
+  {
+    "confirmed": [
+      {
+        "id": "draft-compensation-reissues-completed-request",
+        "severity": "P1",
+        "file": "E:/EcomGen/desktop/packages/backend/src/commands/patternDrafts.ts",
+        "line": 579,
+        "summary": "失败槽位补偿未复用已有完整回执，而是创建新任务并再次发送生图请求。",
+        "evidence": [
+          "隔离实际 Backend 复现：首次生图 POST 成功，下载返回 503；任务 FAILED，请求账本为 COMPLETED/localState=PENDING。调用 retryFailedDraftBatch 后，新任务 SUCCEEDED，生图 POST 从 1 次增加到 2 次，Idempotency-Key 随新 jobId 改变。",
+          "E:/EcomGen/desktop/packages/backend/src/execution/job-pattern-drafts.ts:258–259 使用 generationKeyFor(job.id, slotIndex)；E:/EcomGen/desktop/packages/backend/src/runtime/request-ledger.ts:40 仅在当前任务的请求记录中查找回执，新补偿任务没有继承旧证据。",
+          "E:/EcomGen/desktop/migration-discovery/INTERFACES.md:104 明确要求已有完整回执时重放，并仅续做下载或本地阶段。"
+        ],
+        "guards_checked": [
+          "UNKNOWN/IN_FLIGHT 屏障确实有效，但完整回执后的下载失败不属于未知结果，因此不会阻止此路径。",
+          "普通 retryJob 确实可以安全复用回执。独立对照复现中，同一任务重试后成功，累计只有 1 次生图 POST、2 次下载；但补偿按钮调用的是 retryFailedDraftBatch。",
+          "现有补偿测试只验证失败槽位选择和 UNKNOWN 拒绝，普通重试测试走同一 jobId，均不能反驳本问题。"
+        ],
+        "original_source": "E:/EcomGen/legacy/apps/api/src/routes/patternDrafts.ts:541–562 原补偿操作也创建新任务；直接保留这一旧行为没有满足新版新增的完整回执恢复要求。",
+        "reproduction": "C:/Users/Administrator/AppData/Local/Temp/ecomgen-inspection-20261106-repro.mjs"
+      },
+      {
+        "id": "active-compensation-invalidates-unfinished-slots",
+        "severity": "P1",
+        "file": "E:/EcomGen/desktop/packages/backend/src/commands/patternDrafts.ts",
+        "line": 572,
+        "summary": "其他槽位仍运行时允许转移失败槽位，导致原任务无法保存其他已返回的候选，也无法通过原任务重试恢复。",
+        "evidence": [
+          "隔离复现补偿前：原任务 RUNNING，槽位为 FAILED/RUNNING，两个生图请求均 COMPLETED，第二张图片下载被受控挂起。",
+          "补偿转移槽位 1 后释放第二张图片下载：原任务 FAILED，最终只有槽位 1 的候选，槽位 2 为 FAILED；旧任务两个回执仍为 COMPLETED/PENDING，retryJob 被拒绝。",
+          "E:/EcomGen/desktop/packages/backend/src/execution/context.ts:61–64 每次执行有效性检查都会核对全部冻结槽位。槽位 1 的 jobId/attempt 改变，因此槽位 2 后续检查也失败。",
+          "E:/EcomGen/desktop/packages/backend/src/execution/index.ts:133–135 重试同样检查全部冻结槽位，不能利用旧任务的完整回执继续槽位 2。",
+          "E:/EcomGen/desktop/apps/desktop/src/renderer/features/pattern-drafts/PatternDraftWorkspacePage.tsx:909 仅按失败槽位数量显示补偿按钮；其回调和 E:/EcomGen/desktop/apps/desktop/src/renderer/api/hooks/usePatternDrafts.ts:191–196 均没有活动批次阻断。"
+        ],
+        "guards_checked": [
+          "activeJob 已被查出，但仅在没有失败槽位时用于复用；存在失败槽位时继续创建补偿任务。",
+          "两个请求均 COMPLETED，因此 UNKNOWN/IN_FLIGHT 检查不会阻断。",
+          "E:/EcomGen/desktop/packages/core/src/repositories/patternDraftRepository.ts:276–287 只检查被转移槽位是否 FAILED，没有检查原任务是否仍运行。"
+        ],
+        "original_source": "E:/EcomGen/legacy/apps/worker/src/job-pattern-drafts.ts:142–168 原执行循环允许单槽失败后继续其他槽位，没有新版的全部冻结槽位归属检查；新版补偿逻辑与新增隔离检查组合后产生此失败。",
+        "reproduction": "C:/Users/Administrator/AppData/Local/Temp/ecomgen-inspection-20261106-active.mjs"
+      },
+      {
+        "id": "transparent-validation-bypassed-on-retry",
+        "severity": "P1",
+        "file": "E:/EcomGen/desktop/packages/backend/src/execution/job-patterns.ts",
+        "line": 195,
+        "summary": "正式花型透明校验失败后，重试因候选已存在而跳过校验，将任务错误结算为成功并允许流水线继续。",
+        "evidence": [
+          "隔离实际 Backend 起稿复现：TRANSPARENT 请求收到不透明 PNG，首次任务 FAILED 且保存 1 个花型；retryJob 后变为 SUCCEEDED，重试新增生图 POST 为 0。",
+          "独立生成式衍生复现：透明源图采用 SOURCE 背景，实际请求包含 background=transparent，返回图 alpha 最小值为 255；首次 FAILED，重试 SUCCEEDED，新增 POST 为 0。",
+          "独立流水线复现：透明起稿首次使 Pipeline/SOURCE 均 FAILED；retryJob 后 SOURCE 被标为 SUCCEEDED，并实际创建下一步骤任务，期间没有新增生图 POST。",
+          "E:/EcomGen/desktop/packages/backend/src/execution/job-patterns.ts:203–206 先保存并提交候选，再校验透明要求；第 195 行恢复路径直接跳过已有候选。生成式衍生第 286、303–306 行存在相同顺序。",
+          "E:/EcomGen/desktop/packages/backend/src/execution/index.ts:97–122 对错误成功的来源任务正常推进流水线。",
+          "E:/EcomGen/desktop/migration-discovery/map-2.json:187 明确要求透明验证结果保存为检查点，重试不能因候选已存在而绕过失败校验。"
+        ],
+        "guards_checked": [
+          "模型能力检查仅证明模型支持透明请求，不能证明实际图片透明。",
+          "retryDomainJob 的回执完整性检查通过，因为外部响应确实完整；它没有检查先前失败的透明结论。",
+          "候选入库时已将请求本地状态标为 COMMITTED，但该状态不代表随后透明校验通过。",
+          "原版同样先保存产物再验证透明；新版保留失败产物符合要求，但必须持续保留失败判定。"
+        ],
+        "original_source": "E:/EcomGen/legacy/apps/worker/src/job-patterns.ts:192–205 保留先保存、再验证的原始语义；E:/EcomGen/legacy/apps/api/src/routes/jobs.ts:58–60 原普通重试创建新任务，并非新版的原任务候选跳过路径。",
+        "reproduction": [
+          "C:/Users/Administrator/AppData/Local/Temp/ecomgen-inspection-20261106-repro.mjs",
+          "C:/Users/Administrator/AppData/Local/Temp/ecomgen-durability-adversarial-20261106.mjs"
+        ]
+      }
+    ],
+    "rejected": [
+      {
+        "claim": "第三项透明重试不变量位于 map-1.json:187。",
+        "reason": "引用错误。该行描述流水线迁移缺口；对应透明校验要求实际位于 E:/EcomGen/desktop/migration-discovery/map-2.json:187、197。引用纠正后，缺陷结论仍成立。"
+      },
+      {
+        "claim": "失败补偿删除或物理丢失原有完整回执。",
+        "reason": "原任务回执仍保存在账本中，复现后仍为 COMPLETED/PENDING。确认的问题是新补偿任务不复用这些证据；第二项还使旧任务无法通过归属检查恢复。"
+      },
+      {
+        "claim": "所有下载失败重试都会重复发送生图请求。",
+        "reason": "同一 jobId 的普通 retryJob 能复用完整回执，隔离对照成功且没有额外生图 POST。重复发送限定于报告指出的失败槽位补偿路径。"
+      }
+    ],
+    "unverified": [
+      {
+        "claim": "额外生图请求一定导致真实供应商重复扣费。",
+        "reason": "已确认发送了携带不同 Idempotency-Key 的额外生图 POST；按要求仅使用假网络，未验证真实供应商扣费。重复付费请求风险成立，实际账单金额未验证。"
+      }
+    ],
+    "verification": {
+      "runtime": "C:/Users/Administrator/AppData/Local/EcomGenRuntime/node-download-20261105/node-v22.23.4-win-x64/node.exe",
+      "method": "实际默认 Backend、临时 SQLite 和合成图片，所有网络均由 mock 接管，临时业务数据已清理，未修改生产源码或读取真实用户及供应商数据。",
+      "artifact_consistency": "核对了 8 个相关 Backend 模块，当前 TypeScript 的 ESM 转译结果与复现执行的 dist JavaScript 一致。",
+      "existing_tests": {
+        "passed": 4,
+        "skipped": 50,
+        "files": [
+          "E:/EcomGen/desktop/packages/backend/test/execution/executors.test.ts",
+          "E:/EcomGen/desktop/packages/backend/test/commands/commands.test.ts",
+          "E:/EcomGen/desktop/packages/backend/test/runtime/request-ledger.test.ts"
+        ],
+        "interpretation": "所选现有安全重试、完整回执下载恢复和补偿 UNKNOWN 测试全部通过；它们没有覆盖上述三个失败场景。"
+      },
+      "excluded": "未报告已知 UI revision/history 及 guard 修复问题。"
+    }
+  }
+]
